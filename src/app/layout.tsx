@@ -11,7 +11,7 @@ export const metadata: Metadata = {
   description: "LinkedIn posts in your own voice, from two minutes a week.",
 };
 
-export default function RootLayout({ children }: LayoutProps<"/">) {
+export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en" className={`${sans.variable} ${mono.variable} h-full antialiased`}>
       <body className="min-h-full flex flex-col bg-background text-foreground">
