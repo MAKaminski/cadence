@@ -56,6 +56,23 @@ d("drafting and publishing pipeline", () => {
     expect(pubs.map((p) => p.status)).toEqual(["published"]);
   });
 
+  it("captures results after publishing and reports them through the stats service", async () => {
+    const stats = await import("@/services/stats");
+    const [pub] = await db.asUser(U, (tx) => tx.select().from(s.publications).where(eq(s.publications.status, "published")));
+    expect(await publishing.captureMetrics(U, pub.id)).toMatch(/^captured \d+ impressions$/);
+    const weeks = await stats.outreach(U, 2);
+    expect(weeks).toHaveLength(2);
+    expect(weeks[1]).toMatchObject({ posts: 1, target: 2 });
+    const posts = await stats.impact(U);
+    expect(posts).toHaveLength(1);
+    expect(posts[0].sample).toBe(true);
+    expect(posts[0].rate).toBeGreaterThan(0);
+    expect((await stats.whatWorks(U)).map((w) => w.dimension).sort()).toEqual(["angle", "length", "weekday"]);
+    // Publishing queued the 24 h and 72 h captures.
+    const queued = await db.asUser(U, (tx) => tx.select().from(s.jobs).where(eq(s.jobs.kind, "metrics")));
+    expect(queued).toHaveLength(2);
+  });
+
   it("refuses text that changed after approval", async () => {
     const [draft] = await newDrafts();
     await db.asUser(U, (tx) => drafting.approveInTx(tx, U, draft.id));

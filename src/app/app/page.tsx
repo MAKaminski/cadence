@@ -10,6 +10,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { CheckinForm } from "./checkin-form";
 import { DraftCard } from "./draft-card";
 import { AutoRefresh } from "./auto-refresh";
+import { consistency, outreach } from "@/services/stats";
+import Link from "next/link";
 import { isDemo } from "@/lib/mode";
 import { PERSONA } from "@/lib/demo-persona";
 
@@ -29,6 +31,7 @@ export default async function ThisWeek() {
     expiresSoon: (await tx.select({ id: platformAccounts.id }).from(platformAccounts)
       .where(and(eq(platformAccounts.platform, "linkedin"), sql`${platformAccounts.expiresAt} < now() + interval '7 days'`)).limit(1)).length > 0,
   }));
+  const [weeks, streak] = await Promise.all([outreach(user.id, 1), consistency(user.id)]);
   const tz = (data.profile?.cadence as { tz?: string })?.tz ?? "UTC";
   const order = { held: 0, draft: 1, scheduled: 2, failed: 3 } as Record<string, number>;
   const list = [...data.list].sort((a, b) => order[a.status] - order[b.status]);
@@ -40,6 +43,12 @@ export default async function ThisWeek() {
       <div>
         <h1 className="text-2xl font-semibold tracking-tight">This week</h1>
         <p className="mt-1 text-muted-foreground">Two minutes of notes in; drafts in your voice out. Nothing posts until you approve it.</p>
+        <p className="mt-3 inline-flex flex-wrap items-center gap-x-3 gap-y-1 rounded-full border px-3 py-1 text-sm" data-testid="week-summary">
+          <span><span className="font-semibold tabular-nums">{weeks[0].posts} of {weeks[0].target}</span> posts this week</span>
+          <span className="text-muted-foreground">·</span>
+          <span><span className="font-semibold tabular-nums">{streak.streakWeeks}</span> week streak</span>
+          <Link href="/app/results" className="text-primary underline-offset-4 hover:underline">See results</Link>
+        </p>
       </div>
 
       {data.expiresSoon && <p className="rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900 dark:bg-amber-950 dark:text-amber-100">Your LinkedIn connection ends soon. <a className="underline" href="/login">Sign in with LinkedIn again</a> to keep posting.</p>}

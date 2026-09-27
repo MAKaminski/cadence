@@ -4,6 +4,15 @@ All notable changes to Cadence. The format follows [Keep a Changelog](https://ke
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-09-27
+
+### Added
+- Results page with four readable charts: posts per week against your target (outreach), consistency stats, reach and engagement per post with a 4-post average and your best post (impact), and engagement by angle, weekday and length (what works). Each has a "how to read this" line and a table view.
+- A this-week summary on This week (posts vs target, streak).
+- Results capture: a routine records each post's numbers 24 h and 72 h after it goes out, through the platform adapter. Demo mode records clearly labelled sample numbers; for real users it switches on when LinkedIn approves analytics.
+- Demo-only "8 weeks of sample history" so the charts can be explored.
+- `src/services/stats.ts`, shared by the page and (next) the API and MCP server.
+
 ## [0.2.0] - 2026-09-27
 
 ### Added
@@ -31,6 +40,7 @@ All notable changes to Cadence. The format follows [Keep a Changelog](https://ke
 - Three-step guided setup, weekly check-in, settings.
 - Postgres schema with row-level security on every tenant table; generated ERD in ARCHITECTURE.md.
 
-[Unreleased]: https://github.com/MAKaminski/cadence/compare/v0.2.0...HEAD
+[Unreleased]: https://github.com/MAKaminski/cadence/compare/v0.3.0...HEAD
+[0.3.0]: https://github.com/MAKaminski/cadence/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/MAKaminski/cadence/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/MAKaminski/cadence/releases/tag/v0.1.0

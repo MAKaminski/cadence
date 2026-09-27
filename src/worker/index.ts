@@ -3,7 +3,7 @@
 //   pnpm worker --once   drain what's due, then exit (tests, demo recording)
 import { claim, finish, recoverLost, type Job } from "@/lib/jobs";
 import { draftFromCheckin, CapReached } from "@/lib/drafting";
-import { publishDraft } from "@/lib/publishing";
+import { captureMetrics, publishDraft } from "@/lib/publishing";
 import { remindCheckin, remindExpiry, sweep } from "@/lib/reminders";
 
 const POLL_MS = Number(process.env.WORKER_POLL_MS ?? 5000);
@@ -15,7 +15,7 @@ async function run(job: Job): Promise<string | void> {
     case "publish": return publishDraft(job.userId, job.refId!);
     case "remind_checkin": return remindCheckin(job.userId);
     case "remind_expiry": return remindExpiry(job.userId, job.refId!);
-    case "metrics": return "analytics not enabled yet";
+    case "metrics": return captureMetrics(job.userId, job.refId!);
   }
 }
 

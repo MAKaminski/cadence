@@ -61,6 +61,7 @@ export const ROUTINES: (Item & { when: string })[] = [
   { name: "Monthly cost cap", when: "Before every model call", what: `Stops drafting at $${LIMITS.monthlyCapUsd} of model use in a month and tells you, instead of charging more.` },
   { name: "Scheduling", when: "On approval", what: "Puts the post into your next free posting slot, in your time zone." },
   { name: "Publishing", when: "At the scheduled time", what: "Posts the exact approved text through LinkedIn's official API, once. A post that might have gone out is marked for review, never retried." },
+  { name: "Results check", when: "24 and 72 hours after each post", what: "Records impressions, reactions, comments and reshares for the Results charts. Starts once LinkedIn approves analytics access; until then the charts say so." },
   { name: "Check-in reminder", when: "The day before your first posting day", what: "An email if you haven't checked in that week." },
   { name: "Connection reminder", when: "7 days and 1 day before LinkedIn access expires", what: "LinkedIn access lasts about 60 days. Signing in again renews it." },
 ];

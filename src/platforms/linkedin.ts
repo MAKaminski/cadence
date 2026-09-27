@@ -47,4 +47,10 @@ export const linkedin: PlatformAdapter = {
     if (res.status === 401) throw new PublishError("LinkedIn access has expired. Sign in again to reconnect.", true);
     throw new PublishError(`LinkedIn answered ${res.status}: ${detail}`, res.status < 500);
   },
+  // Member post analytics need LinkedIn's approval of r_member_postAnalytics. Until the app has it
+  // (LINKEDIN_ANALYTICS=1), results are reported as unavailable rather than guessed.
+  async fetchMetrics() {
+    if (process.env.LINKEDIN_ANALYTICS !== "1") return null;
+    throw new Error("LinkedIn analytics is enabled but not implemented yet; see the v0.3 plan.");
+  },
 };

@@ -1,0 +1,1 @@
+CREATE INDEX "metrics_user_time" ON "metrics" USING btree ("user_id","captured_at");

@@ -33,4 +33,12 @@ test("demo: sign up, trial, set up, check in, approve, publish", async ({ page }
     await page.goto("/app/published");
     await expect(page.getByTestId("publication").first()).toContainText("Published", { timeout: 2000 });
   }).toPass({ timeout: 30_000 });
+
+  // Results: sample metrics arrive from the worker within seconds; history makes the trends visible.
+  await page.goto("/app/results");
+  await page.getByRole("button", { name: /sample history/i }).click();
+  await expect(page.getByTestId("chart-outreach")).toBeVisible();
+  await expect(page.getByTestId("chart-impact")).toBeVisible();
+  await expect(page.getByTestId("chart-what-works")).toBeVisible();
+  await expect(page.getByText("Demo: sample numbers")).toBeVisible();
 });
