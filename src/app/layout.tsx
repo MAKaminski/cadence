@@ -1,14 +1,21 @@
 import type { Metadata } from "next";
 import { Hanken_Grotesk, Geist_Mono } from "next/font/google";
 import { Toaster } from "@/components/ui/sonner";
+import { SITE } from "@/lib/site";
 import "./globals.css";
 
 const sans = Hanken_Grotesk({ variable: "--font-sans", subsets: ["latin"] });
 const mono = Geist_Mono({ variable: "--font-geist-mono", subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: { default: "Cadence", template: "%s · Cadence" },
-  description: "LinkedIn posts in your own voice, from two minutes a week.",
+  metadataBase: new URL(SITE.url),
+  title: { default: `Cadence: ${SITE.tagline}`, template: "%s · Cadence" },
+  description: SITE.description,
+  applicationName: "Cadence",
+  keywords: ["LinkedIn posting", "LinkedIn scheduler", "AI LinkedIn posts", "personal brand", "ghostwriting", "Claude", "open source"],
+  alternates: { canonical: "/" },
+  openGraph: { type: "website", siteName: "Cadence", title: SITE.tagline, description: SITE.description, url: "/" },
+  twitter: { card: "summary_large_image", title: `Cadence: ${SITE.tagline}`, description: SITE.description },
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

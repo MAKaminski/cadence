@@ -1,6 +1,6 @@
 {
   "name": "cadence",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
   "scripts": {
     "dev": "next dev",
@@ -13,7 +13,15 @@
     "arch": "node scripts/erd.mjs",
     "arch:check": "node scripts/erd.mjs --check",
     "db:generate": "drizzle-kit generate",
-    "db:migrate": "drizzle-kit migrate"
+    "db:migrate": "drizzle-kit migrate",
+    "worker": "tsx src/worker/index.ts",
+    "worker:once": "tsx src/worker/index.ts --once",
+    "demo": "node scripts/demo.mjs",
+    "demo:record": "tsx scripts/demo/record.ts",
+    "test:e2e": "playwright test",
+    "build:worker": "esbuild src/worker/index.ts --bundle --platform=node --format=esm --target=node24 --packages=external --outfile=dist/worker.mjs",
+    "catalog": "tsx scripts/catalog.ts",
+    "catalog:check": "tsx scripts/catalog.ts --check"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "0.128.0",
@@ -41,12 +49,14 @@
     "zod": "4.6.5"
   },
   "devDependencies": {
+    "@playwright/test": "^1.63.0",
     "@tailwindcss/postcss": "^4",
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "dotenv": "^18.0.4",
     "drizzle-kit": "0.31.11",
+    "esbuild": "^0.28.2",
     "eslint": "^9",
     "eslint-config-next": "16.3.6",
     "tailwindcss": "^4",
@@ -54,5 +64,27 @@
     "typescript": "^5",
     "vitest": "5.0.2"
   },
-  "packageManager": "pnpm@11.22.0"
+  "packageManager": "pnpm@11.22.0",
+  "description": "LinkedIn posts in your own voice, from two minutes a week. Open-source, multi-user, Claude-written drafts checked against your own facts, published through LinkedIn's official API.",
+  "license": "MIT",
+  "homepage": "https://github.com/MAKaminski/cadence#readme",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/MAKaminski/cadence.git"
+  },
+  "bugs": {
+    "url": "https://github.com/MAKaminski/cadence/issues"
+  },
+  "keywords": [
+    "linkedin",
+    "social-media",
+    "scheduler",
+    "ai",
+    "claude",
+    "anthropic",
+    "nextjs",
+    "postgres",
+    "saas",
+    "open-source"
+  ]
 }

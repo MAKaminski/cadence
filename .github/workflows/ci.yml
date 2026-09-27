@@ -29,8 +29,17 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm scrub
       - run: pnpm arch:check
+      - run: pnpm catalog:check
       - run: pnpm typecheck
       - run: pnpm lint
       - run: pnpm db:migrate
       - run: pnpm test
       - run: pnpm build
+      - run: pnpm build:worker
+      # The whole product end to end in demo mode: sign-up, trial, setup, check-in, drafts, approve, publish.
+      - run: pnpm exec playwright install --with-deps chromium
+      - name: Demo smoke test
+        run: |
+          pnpm demo --prod > demo.log 2>&1 &
+          for i in $(seq 1 60); do curl -sf http://localhost:3000/ >/dev/null && break; sleep 2; done
+          pnpm test:e2e || { tail -100 demo.log; exit 1; }

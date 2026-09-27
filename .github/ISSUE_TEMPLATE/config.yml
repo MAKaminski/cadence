@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Ideas and questions
+    url: https://github.com/MAKaminski/cadence/discussions
+    about: Share ideas and vote on others'
+  - name: Security report
+    url: https://github.com/MAKaminski/cadence/security/advisories/new
+    about: Report vulnerabilities privately

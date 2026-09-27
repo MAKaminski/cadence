@@ -2,39 +2,48 @@
 
 Cadence turns a short weekly check-in into LinkedIn posts in the user's own voice, checks them against the
 user's own facts, and publishes the ones they approve through LinkedIn's official API. Multi-user,
-subscription-billed, hosted on Railway.
+subscription-billed, hosted on Railway as two services (`web`, `worker`) plus Postgres.
 
 ## Systems, by layer
 
 | Layer | Components | Notes |
 |---|---|---|
-| Front-end | Next.js 16 App Router pages: `/` landing, `/login`, `/checkout`, `/onboarding` (3-step stepper), `/app` (This week), `/app/settings`, `/terms`, `/privacy`; shadcn/ui (Base UI) components | Server components gate every signed-in page; `src/proxy.ts` is only a fast cookie check |
-| Back-end | Postgres (Railway). Better Auth tables (`user`, `session`, `account`, `verification`, `subscription`) + app tables (`platform_accounts`, `profiles`, `inputs`, `drafts`, `publications`, `metrics`, `jobs`, `llm_usage`) | Row-level security on every app table; queries run as the unprivileged `cadence_app` role via `asUser()` / `asWorker()` in `src/db/index.ts` |
-| Middleware | Better Auth (LinkedIn OIDC + `w_member_social` in one consent, tokens encrypted); Better Auth Stripe plugin (checkout with 7-day trial, portal, webhook at `/api/auth/stripe/webhook`); server actions for onboarding and check-ins | Worker, drafting and publishing arrive in build steps 4–5 |
-| Infrastructure | Railway: `web` (and later `worker`) from this repo, Postgres plugin; GitHub Actions CI | Secrets only in Railway variables |
+| Front-end | Next.js 16 App Router. Public: `/`, `/how-it-works`, `/demo`, `/login`, `/terms`, `/privacy`, plus `sitemap.xml`, `robots.txt`, `opengraph-image`, `/llms.txt`, `/llms-full.txt`. Signed in: `/checkout`, `/onboarding` (3-step stepper), `/app` (This week: check-in and draft cards with "Why this draft"), `/app/published`, `/app/settings`. shadcn/ui on Base UI | Server components gate every signed-in page; `src/proxy.ts` is only a fast cookie check. `catalog-view.tsx` renders `src/lib/catalog.ts` |
+| Back-end | Postgres. Better Auth tables (`user`, `session`, `account`, `verification`, `subscription`) and app tables (`platform_accounts`, `profiles`, `inputs`, `drafts`, `publications`, `metrics`, `jobs`, `llm_usage`) | Row-level security on every app table; queries run as the unprivileged `cadence_app` role via `asUser()` / `asWorker()` in `src/db/index.ts` |
+| Middleware | Better Auth (LinkedIn OIDC + `w_member_social` in one consent, tokens encrypted; `anonymous` plugin in demo mode only). Stripe plugin (checkout with 7-day trial, portal, webhook at `/api/auth/stripe/webhook`). Server actions (`onboarding/actions.ts`, `app/actions.ts`). **Engine** (`src/engine/`: format, gate, facts, suppress, evaluate, schedule; pure). **Writer** (`src/lib/llm.ts`: Claude or demo). **Platform adapter** (`src/platforms/`: LinkedIn Posts API or demo). **Pipelines** (`drafting.ts`, `publishing.ts`, `reminders.ts`). **Job queue** (`jobs.ts`) | Thresholds live only in `src/lib/catalog.ts` |
+| Infrastructure | Railway: `web` (`railway/web.json`, runs migrations before deploy) and `worker` (`railway/worker.json`, esbuild bundle `dist/worker.mjs`), Postgres. GitHub Actions: CI (scrub, arch, catalog, typecheck, lint, migrate, unit and DB tests, build, Playwright demo smoke) and release (notes from CHANGELOG, demo MP4 attached) | Secrets only in Railway variables. `pnpm demo` runs everything locally with no keys |
 
 ## Features and the tables they own
 
-- **Sign-in and billing**: Better Auth + Stripe plugin. Owns `user`, `session`, `account`, `verification`, `subscription`.
+- **Sign-in and billing**: Better Auth and its Stripe plugin. Owns `user`, `session`, `account`, `verification`, `subscription`.
 - **Connection to a platform**: `platform_accounts` (identity, status, expiry). The OAuth token itself stays in `account` (encrypted), one source of truth.
-- **Setup (once)**: `profiles`: about, facts, voice samples, topics, no-go list, cadence, model.
-- **Weekly check-in**: `inputs`.
-- **Drafting and publishing**: `drafts`, `publications`, `jobs`, `llm_usage`; results in `metrics`.
+- **Setup (once)**: `profiles`: about, facts, voice samples, topics, no-go list, cadence, model, auto-publish.
+- **Weekly check-in**: `inputs`. Saving one enqueues a `draft` job in the same transaction.
+- **Drafting**: `drafts` (body, version, `gate` = the "Why this draft" record) and `llm_usage` (every model call, and the $5 monthly cap).
+- **Publishing**: `publications` (one per draft, unique; the only publish state machine) and `drafts.approved_body_hash`.
+- **Background work**: `jobs` (draft, publish, reminders; `locked_at` lease).
+- **Results**: `metrics`, filled once LinkedIn approves analytics access.
 
 **Standalone table:** `subscription` has no foreign key. Its `reference_id` holds the user id, but the Better Auth Stripe plugin also allows organisation references, so it is managed by the plugin rather than constrained here.
 
 ## Platforms
 
 Every platform-facing row carries a `platform` enum (`linkedin` today). Shared facts are columns;
-platform-only details go in `platform_data`. Adding a platform means a new enum value and a new adapter.
+platform-only details go in `platform_data`. Adding a platform means a new enum value and a new `PlatformAdapter`.
 
 ## Patterns
 
 | Pattern | Where | Use it instead of |
 |---|---|---|
-| Tenant scoping | `asUser(userId, tx => …)` | Hand-written `where user_id =` clauses (RLS enforces it anyway) |
+| Tenant scoping | `asUser(userId, tx => …)`; the worker uses `asWorker` to claim, then `asUser` per job | Hand-written `where user_id =` clauses (RLS enforces it anyway) |
 | Server-side gate | `requireUser()` / `requireSubscriber()` in `src/lib/session.ts` | Checks in client components or proxy |
-| Validated mutation | server action + zod schema returning `{ ok } \| { ok: false, error }` | Route handlers for form posts |
+| Validated mutation | Server action + zod, returning `{ ok } \| { ok: false, error }` | Route handlers for form posts |
+| One catalog | `src/lib/catalog.ts` holds every threshold and the lists of settings and routines. The engine, pages, llms.txt and README all read it | Numbers repeated in copy or code |
+| Real or demo behind one interface | `Writer` (`llm.ts`), `PlatformAdapter` (`platforms/`), email (`email.ts`), chosen by `isDemo()` in `mode.ts`. Demo mode is refused unless localhost or CI | `if (demo)` branches inside pipelines |
+| Background job | `enqueue(tx, …)` inside the caller's transaction; `claim()` with `SKIP LOCKED`; `finish()` retries up to 3 times, publish once | Timers, or work inside a request |
+| Exactly-once side effect | Write the intent row (`publications.status='publishing'`, unique) and commit, call outside any transaction, then record the result. Lost ones go to `needs_review` | Retrying a call that may have succeeded |
+
+**Why no new components were needed for steps 4–5:** drafting, publishing and reminders are all "background job"s. Each outside service reuses "real or demo behind one interface". The draft explanation reuses `drafts.gate` rather than a new table, and reminders reuse `jobs` as their log.
 
 ## ERD
 
@@ -94,6 +103,7 @@ erDiagram
     timestamp created_at
     timestamp updated_at
     text stripe_customer_id
+    boolean is_anonymous
   }
   verification {
     text id PK
@@ -133,6 +143,7 @@ erDiagram
     text status
     integer attempts
     text last_error
+    timestamp_with_time_zone locked_at
     timestamp_with_time_zone created_at
   }
   llm_usage {

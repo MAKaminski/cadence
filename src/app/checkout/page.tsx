@@ -6,6 +6,7 @@ import { hasSubscription, requireUser } from "@/lib/session";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { SiteHeader } from "@/components/site-chrome";
 import { StartTrial } from "./start-trial";
+import { isDemo } from "@/lib/mode";
 
 export const metadata: Metadata = { title: "Start your trial" };
 
@@ -18,7 +19,7 @@ export default async function CheckoutPage() {
       <main className="flex flex-1 items-center justify-center px-4 py-16">
         <Card className="w-full max-w-md">
           <CardHeader>
-            <CardTitle className="text-xl">Welcome, {user.name.split(" ")[0]}</CardTitle>
+            <CardTitle className="text-xl">Welcome, {user.name.split(" ")[0] || "there"}</CardTitle>
             <CardDescription>Start your {TRIAL_DAYS}-day free trial. You won't be charged until it ends.</CardDescription>
           </CardHeader>
           <CardContent className="flex flex-col gap-5">
@@ -30,7 +31,8 @@ export default async function CheckoutPage() {
                 ))}
               </ul>
             </div>
-            <StartTrial plan={PLAN} />
+            {isDemo() && <p className="rounded-lg bg-muted p-3 text-sm">Demo mode: this stands in for the card step. No card is taken and nothing is charged.</p>}
+            <StartTrial plan={PLAN} demo={isDemo()} />
           </CardContent>
         </Card>
       </main>

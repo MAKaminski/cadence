@@ -34,7 +34,9 @@ function Field({ id, label, hint, children }: { id: string; label: string; hint?
   );
 }
 
-export function Stepper({ initial }: { initial: Initial }) {
+type Example = { role: string; audience: string; goals: string; facts: string; samples: [string, string, string]; topics: string; noGo: string };
+
+export function Stepper({ initial, example }: { initial: Initial; example?: Example }) {
   const router = useRouter();
   const [step, setStep] = useState(Math.min(Math.max(initial.step, 1), 3));
   const [v, setV] = useState(initial);
@@ -59,6 +61,13 @@ export function Stepper({ initial }: { initial: Initial }) {
       <div>
         <h1 className="text-2xl font-semibold tracking-tight">{TITLES[step - 1]}</h1>
         <p className="mt-2 text-muted-foreground">{WHY[step - 1]}</p>
+        {example && step < 3 && (
+          <Button type="button" variant="link" className="mt-1 px-0" onClick={() => setV((x) => step === 1
+            ? { ...x, role: example.role, audience: example.audience, goals: example.goals, facts: example.facts }
+            : { ...x, samples: example.samples, topics: example.topics, noGo: example.noGo })}>
+            Fill in the example answers (demo)
+          </Button>
+        )}
       </div>
 
       <form className="flex flex-col gap-6" onSubmit={(e) => { e.preventDefault(); submit(); }}>

@@ -20,6 +20,7 @@ export const user = pgTable("user", {
     .$onUpdate(() => /* @__PURE__ */ new Date())
     .notNull(),
   stripeCustomerId: text("stripe_customer_id"),
+  isAnonymous: boolean("is_anonymous").default(false),
 });
 
 export const session = pgTable(

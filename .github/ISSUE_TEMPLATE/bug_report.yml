@@ -1,0 +1,17 @@
+name: Bug report
+description: Something doesn't work as described
+labels: [bug]
+body:
+  - type: textarea
+    id: what
+    attributes: { label: What happened, description: "And what you expected instead." }
+    validations: { required: true }
+  - type: textarea
+    id: steps
+    attributes: { label: Steps to reproduce, description: "A demo-mode repro (`pnpm demo`) is ideal." }
+  - type: input
+    id: version
+    attributes: { label: Version or commit }
+  - type: dropdown
+    id: where
+    attributes: { label: Where, options: [Hosted Cadence, Self-hosted, Demo mode] }

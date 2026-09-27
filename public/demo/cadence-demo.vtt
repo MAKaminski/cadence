@@ -1,0 +1,73 @@
+WEBVTT
+
+1
+00:00:00.000 --> 00:00:05.400
+Cadence: LinkedIn posts in your own voice, from two minutes a week. $20/month after a 7-day trial.
+
+2
+00:00:05.400 --> 00:00:10.500
+Everything is visible: 12 settings you choose once, 5 weekly actions, 10 automatic routines
+
+3
+00:00:10.500 --> 00:00:15.100
+Every draft is fixed, rewritten once, or held for you, by the same published rules
+
+4
+00:00:15.100 --> 00:00:18.700
+Sign in. Real users use LinkedIn's official sign-in; the demo uses a throwaway account
+
+5
+00:00:18.700 --> 00:00:22.300
+Card first, 7 days free. Real users go to Stripe Checkout; the demo takes no card
+
+6
+00:00:22.300 --> 00:00:27.900
+Setup 1 of 3: who you are, who you want to reach, and the only facts Cadence may state
+
+7
+00:00:27.900 --> 00:00:32.900
+Setup 2 of 3: three of your own posts teach it your voice, plus topics and a never-write-about list
+
+8
+00:00:32.900 --> 00:00:38.000
+Setup 3 of 3: posts per week, days, time, and the writing model (Claude Sonnet 5 or Opus 5)
+
+9
+00:00:38.000 --> 00:00:43.100
+Each week: two minutes of rough notes. That's the only regular input
+
+10
+00:00:43.100 --> 00:00:47.900
+Cadence writes 2 versions of each post in your voice, checks both, and keeps the better one
+
+11
+00:00:47.900 --> 00:00:51.500
+Drafts are ready. Nothing posts until you approve it
+
+12
+00:00:51.500 --> 00:00:58.600
+Why this draft: the angle, every check it passed, what was fixed automatically, and what it cost
+
+13
+00:00:58.600 --> 00:01:04.200
+Edit anything. Your version is re-checked but never rewritten: you're the author
+
+14
+00:01:04.200 --> 00:01:08.800
+Approved: the exact text is locked and scheduled into your next posting slot, in your time zone
+
+15
+00:01:08.800 --> 00:01:12.300
+Or post now. It goes out once through LinkedIn's official API (recorded, not sent, in the demo)
+
+16
+00:01:12.300 --> 00:01:16.900
+Published. Results arrive once LinkedIn approves analytics; the demo shows sample numbers
+
+17
+00:01:16.900 --> 00:01:21.400
+Settings: edit your setup, see this month's model use, and unlock automatic posting after 5 clean approvals
+
+18
+00:01:21.400 --> 00:01:26.421
+Every rule is public. Run it yourself: git clone, pnpm install, pnpm demo. MIT licensed.

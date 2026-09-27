@@ -66,7 +66,8 @@ export const drafts = pgTable("drafts", {
   body: text("body").notNull(),
   approvedBodyHash: text("approved_body_hash"),          // only this exact text may be published
   gate: jsonb("gate").notNull().default({}),
-  status: text("status", { enum: ["draft", "approved", "scheduled", "publishing", "published", "skipped", "held", "failed"] }).notNull().default("draft"),
+  // Publishing state lives only in `publications`; a draft goes scheduled -> published (or failed).
+  status: text("status", { enum: ["draft", "scheduled", "published", "skipped", "held", "failed"] }).notNull().default("draft"),
   scheduledFor: timestamp("scheduled_for", { withTimezone: true }),
   inputIds: jsonb("input_ids").notNull().default([]),
   createdAt: created(),
@@ -106,6 +107,9 @@ export const jobs = pgTable("jobs", {
   status: text("status", { enum: ["queued", "running", "done", "failed"] }).notNull().default("queued"),
   attempts: integer("attempts").notNull().default(0),
   lastError: text("last_error"),
+  // Set when a worker claims the job. A 'running' job whose lock is older than the lease was lost with
+  // its worker and is queued again — except publish jobs, which are never repeated (see src/worker).
+  lockedAt: timestamp("locked_at", { withTimezone: true }),
   createdAt: created(),
 }, (t) => [index("jobs_due").on(t.status, t.runAt), uniqueIndex("jobs_once").on(t.userId, t.kind, t.refId, t.runAt), tenant("jobs")]).enableRLS();
 
