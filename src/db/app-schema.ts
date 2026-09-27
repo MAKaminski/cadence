@@ -96,7 +96,7 @@ export const metrics = pgTable("metrics", {
   comments: integer("comments"),
   reshares: integer("reshares"),
   platformData: jsonb("platform_data").notNull().default({}),
-}, (t) => [index("metrics_publication").on(t.publicationId), tenant("metrics")]).enableRLS();
+}, (t) => [index("metrics_publication").on(t.publicationId), index("metrics_user_time").on(t.userId, t.capturedAt), tenant("metrics")]).enableRLS();
 
 export const jobs = pgTable("jobs", {
   id: uuid("id").primaryKey().defaultRandom(),

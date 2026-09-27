@@ -10,6 +10,9 @@ import { drafts, platformAccounts, publications } from "@/db/schema";
 import { bodyHash } from "@/lib/drafting";
 import { FAULT } from "@/lib/mode";
 import { adapterFor, PublishError } from "@/platforms";
+import { enqueue } from "@/lib/jobs";
+import { isDemo } from "@/lib/mode";
+import { metrics as metricsTable } from "@/db/schema";
 
 export async function publishDraft(userId: string, draftId: string): Promise<string> {
   const d = await asUser(userId, async (tx) => (await tx.select().from(drafts).where(eq(drafts.id, draftId)))[0]);
@@ -32,6 +35,9 @@ export async function publishDraft(userId: string, draftId: string): Promise<str
     await asUser(userId, async (tx) => {
       await tx.update(publications).set({ status: "published", externalPostId: out.externalId, publishedAt: new Date() }).where(eq(publications.id, pubId));
       await tx.update(drafts).set({ status: "published" }).where(eq(drafts.id, draftId));
+      // Results at 24 h and 72 h (seconds apart in demo mode, so the charts fill in straight away).
+      const later = (h: number) => new Date(Date.now() + (isDemo() ? h * 250 : h * 3_600_000));
+      for (const h of [24, 72]) await enqueue(tx, userId, "metrics", pubId, later(h));
     });
     return `Published ${out.externalId}`;
   } catch (e) {
@@ -42,4 +48,15 @@ export async function publishDraft(userId: string, draftId: string): Promise<str
     });
     throw e;
   }
+}
+
+/** Capture one snapshot of a publication's numbers. */
+export async function captureMetrics(userId: string, publicationId: string): Promise<string> {
+  const pub = await asUser(userId, async (tx) => (await tx.select().from(publications).where(eq(publications.id, publicationId)))[0]);
+  if (!pub || pub.status !== "published" || !pub.externalPostId || !pub.publishedAt) return "skipped: not published";
+  const m = await adapterFor(pub.platform).fetchMetrics({ userId, externalId: pub.externalPostId, publishedAt: pub.publishedAt });
+  if (!m) return "skipped: analytics not available";
+  const { sample, ...numbers } = m;
+  await asUser(userId, (tx) => tx.insert(metricsTable).values({ userId, publicationId, platform: pub.platform, ...numbers, platformData: sample ? { sample: true } : {} }));
+  return `captured ${m.impressions} impressions`;
 }
