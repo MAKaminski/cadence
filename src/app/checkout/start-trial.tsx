@@ -6,7 +6,8 @@ import { useRouter } from "next/navigation";
 import { authClient } from "@/lib/auth-client";
 import { startDemoTrial } from "@/lib/demo";
 
-export function StartTrial({ plan, demo }: { plan: string; demo?: boolean }) {
+export function StartTrial({ plan, demo, fromIos }: { plan: string; demo?: boolean; fromIos?: boolean }) {
+  const done = fromIos ? "/checkout/done?from=ios" : "/onboarding";
   const [busy, setBusy] = useState(false);
   const router = useRouter();
   if (demo) return (
@@ -14,13 +15,13 @@ export function StartTrial({ plan, demo }: { plan: string; demo?: boolean }) {
       setBusy(true);
       const r = await startDemoTrial();
       if (!r.ok) { toast.error(r.error); setBusy(false); return; }
-      router.push("/onboarding");
+      router.push(done);
     }}>{busy ? "Starting…" : "Start demo trial (no card)"}</Button>
   );
   return (
     <Button size="lg" className="w-full" disabled={busy} onClick={async () => {
       setBusy(true);
-      const { error } = await authClient.subscription.upgrade({ plan, successUrl: "/onboarding", cancelUrl: "/checkout" });
+      const { error } = await authClient.subscription.upgrade({ plan, successUrl: done, cancelUrl: "/checkout" });
       if (error) { toast.error(error.message ?? "Couldn't open checkout. Try again."); setBusy(false); }
     }}>
       {busy ? "Opening secure checkout…" : "Add card and start free trial"}

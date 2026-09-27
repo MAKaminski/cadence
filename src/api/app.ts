@@ -3,8 +3,11 @@
 // src/services: the same rules as the web app and the MCP server.
 import { OpenAPIHono, createRoute, z } from "@hono/zod-openapi";
 import type { Context, MiddlewareHandler } from "hono";
-import { auth, API_LIMIT } from "@/lib/auth";
-import { hasSubscription, me } from "@/services/account";
+import { API_LIMIT, API_RESOURCE } from "@/lib/auth";
+import { isRejection, verifyBearer } from "@/lib/bearer";
+import { deleteAccount, hasSubscription, me } from "@/services/account";
+import { registerDevice, unregisterDevice } from "@/services/devices";
+import { SITE } from "@/lib/site";
 import { getProfile, patchProfile, profilePatch } from "@/services/profile";
 import * as drafts from "@/services/drafts";
 import * as stats from "@/services/stats";
@@ -30,34 +33,28 @@ function problem(c: Context, status: number, title: string, detail: string, head
   return c.json({ type: `https://github.com/MAKaminski/cadence/blob/main/docs/API.md#${title.toLowerCase().replace(/\W+/g, "-")}`, title, status, detail }, status as 400, { "content-type": "application/problem+json" });
 }
 
-const bearer = (c: Context) => c.req.header("authorization")?.match(/^Bearer\s+(.+)$/i)?.[1]?.trim();
+const token = (c: Context) => c.req.header("authorization")?.match(/^Bearer\s+(.+)$/i)?.[1]?.trim();
 
-/** API key -> user, scopes and rate limit. The limiter is the api-key plugin's; we add the headers. */
+/** Bearer (API key or OAuth token for this resource) -> user, scopes and rate limit. src/lib/bearer.ts. */
 const authenticate: MiddlewareHandler<Env> = async (c, next) => {
-  const key = bearer(c);
-  if (!key) return problem(c, 401, "Unauthorized", "Send your API key as `Authorization: Bearer cad_…`. Create one in Settings → API keys.");
-  const r = await auth.api.verifyApiKey({ body: { key } });
-  if (!r.valid || !r.key) {
-    const code = (r.error as { code?: string } | null)?.code;
-    if (code === "RATE_LIMITED") {
-      const ms = Number((r.error as { details?: { tryAgainIn?: number } }).details?.tryAgainIn ?? API_LIMIT.windowMs);
-      const secs = String(Math.max(1, Math.ceil(ms / 1000)));
-      return problem(c, 429, "Too many requests", `This key allows ${API_LIMIT.max} requests per minute.`, {
-        "Retry-After": secs, "RateLimit-Limit": String(API_LIMIT.max), "RateLimit-Remaining": "0", "RateLimit-Reset": secs,
-      });
+  const r = await verifyBearer(c.req.raw, token(c), API_RESOURCE);
+  if (isRejection(r)) {
+    if (r.status === 429) {
+      const secs = String(r.retryAfter ?? 60);
+      return problem(c, 429, "Too many requests", r.detail, { "Retry-After": secs, "RateLimit-Limit": String(API_LIMIT.max), "RateLimit-Remaining": "0", "RateLimit-Reset": secs });
     }
-    return problem(c, 401, "Unauthorized", "That API key is invalid, expired or revoked.");
+    return problem(c, 401, "Unauthorized", token(c) ? r.detail : "Send your API key as `Authorization: Bearer cad_…` (Settings → API keys) or an OAuth access token.");
   }
-  const k = r.key;
-  const max = k.rateLimitMax ?? API_LIMIT.max;
-  c.header("RateLimit-Limit", String(max));
-  c.header("RateLimit-Remaining", String(Math.max(0, max - (k.requestCount ?? 0))));
-  c.header("RateLimit-Reset", String(Math.ceil((k.rateLimitTimeWindow ?? API_LIMIT.windowMs) / 1000)));
-  const userId = k.referenceId;
-  if (!(await hasSubscription(userId))) return problem(c, 402, "Subscription required", "This account has no active trial or subscription. Renew in Settings → Billing.");
-  const perms = (k.permissions ?? {}) as Record<string, string[]>;
-  c.set("userId", userId);
-  c.set("scopes", (perms.cadence ?? ["read"]).filter((s): s is Scope => (SCOPES as readonly string[]).includes(s)));
+  if (r.limit) {
+    c.header("RateLimit-Limit", String(r.limit.max));
+    c.header("RateLimit-Remaining", String(r.limit.remaining));
+    c.header("RateLimit-Reset", String(r.limit.resetSeconds));
+  }
+  // Account deletion, device registration and getting to checkout must work without a plan.
+  const planFree = /\/api\/v1\/(account|devices|billing\/checkout-link|me)(\/|$)/.test(new URL(c.req.url).pathname);
+  if (!r.subscribed && !planFree) return problem(c, 402, "Subscription required", "This account has no active trial or subscription. Renew in Settings → Billing.");
+  c.set("userId", r.userId);
+  c.set("scopes", r.scopes);
   await next();
 };
 
@@ -128,7 +125,8 @@ api.onError((e, c) => {
 
 api.openAPIRegistry.registerComponent("securitySchemes", "apiKey", { type: "http", scheme: "bearer", bearerFormat: "cad_…", description: "An API key from Settings → API keys." });
 api.use("/me", authenticate); api.use("/profile", authenticate); api.use("/checkins", authenticate);
-api.use("/drafts", authenticate); api.use("/drafts/*", authenticate); api.use("/publications", authenticate); api.use("/stats/*", authenticate);
+api.use("/drafts", authenticate); api.use("/drafts/*", authenticate);
+api.use("/devices", authenticate); api.use("/devices/*", authenticate); api.use("/account", authenticate); api.use("/billing/*", authenticate); api.use("/publications", authenticate); api.use("/stats/*", authenticate);
 
 const sec = [{ apiKey: [] }];
 
@@ -207,6 +205,42 @@ api.openapi(createRoute({
 }), async (c) => {
   const userId = c.get("userId");
   return c.json({ posts: await stats.impact(userId), whatWorks: await stats.whatWorks(userId) }, 200);
+});
+
+const Device = z.object({ id: z.string().uuid(), platform: z.enum(["ios"]), environment: z.enum(["sandbox", "production"]), lastSeenAt: z.string() }).openapi("Device");
+
+api.openapi(createRoute({
+  method: "post", path: "/devices", tags: ["Account"], summary: "Register a device for push notifications",
+  description: "Called by the iOS app with its APNs token. Works without an active plan. A token moves to whichever account registers it last.",
+  security: sec, middleware: [need("write")] as const,
+  request: { body: { content: { "application/json": { schema: z.object({ token: z.string().regex(/^[0-9a-fA-F]{32,200}$/), environment: z.enum(["sandbox", "production"]) }).openapi("DeviceInput") } }, required: true } },
+  responses: { 201: { description: "Registered", content: { "application/json": { schema: Device } } }, ...errors },
+}), async (c) => { const b = c.req.valid("json"); return c.json(await registerDevice(c.get("userId"), b.token, b.environment), 201); });
+
+api.openapi(createRoute({
+  method: "delete", path: "/devices/{id}", tags: ["Account"], summary: "Stop push notifications to a device",
+  security: sec, middleware: [need("write")] as const, request: { params: IdParam },
+  responses: { 204: { description: "Removed" }, ...errors },
+}), async (c) => { await unregisterDevice(c.get("userId"), c.req.valid("param").id); return c.body(null, 204); });
+
+api.openapi(createRoute({
+  method: "delete", path: "/account", tags: ["Account"], summary: "Delete your account and everything in it",
+  description: "Cancels an active web subscription immediately, then deletes your setup, drafts, posts' records, results, devices, API keys, connected apps and the stored LinkedIn connection. Posts already on LinkedIn stay there. Requires `confirm: \"delete my account\"`.",
+  security: sec, middleware: [need("write")] as const,
+  request: { body: { content: { "application/json": { schema: z.object({ confirm: z.literal("delete my account") }).openapi("DeleteAccountInput") } }, required: true } },
+  responses: { 200: { description: "Deleted", content: { "application/json": { schema: z.object({ deleted: z.literal(true), cancelledSubscriptions: z.number() }) } } }, ...errors },
+}), async (c) => { const r = await deleteAccount(c.get("userId")); return c.json({ deleted: true as const, cancelledSubscriptions: r.cancelledStripe }, 200); });
+
+api.openapi(createRoute({
+  method: "get", path: "/billing/checkout-link", tags: ["Account"], summary: "Where to subscribe on the web",
+  description: "For apps that link out to web checkout (the iOS app in the US storefront). Returns a link to Cadence's sign-in, which continues to checkout. Refuses with 409 when a plan is already active, so nobody pays twice.",
+  security: sec, middleware: [need("read")] as const,
+  request: { query: z.object({ from: z.enum(["ios"]).optional() }) },
+  responses: json(z.object({ url: z.string().url() }).openapi("CheckoutLink"), "The web checkout link"),
+}), async (c) => {
+  if (await hasSubscription(c.get("userId"))) throw new ServiceError("conflict", "You already have an active plan.");
+  const next = `/checkout${c.req.valid("query").from ? `?from=${c.req.valid("query").from}` : ""}`;
+  return c.json({ url: `${SITE.url}/login?next=${encodeURIComponent(next)}` }, 200);
 });
 
 api.doc31("/openapi.json", (c) => ({

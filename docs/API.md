@@ -4,6 +4,8 @@ Drive Cadence from scripts, the [CLI](../cli/README.md) or your own tools. The A
 
 ## Quick start
 
+Two kinds of bearer credential work: an **API key** (`cad_…`, below) or an **OAuth access token** issued for the resource `https://YOUR-CADENCE-HOST/api/v1` (how the iOS app signs in; the authorization server is described at `/.well-known/oauth-authorization-server/api/auth`). Tokens for the MCP server don't work here, and vice versa.
+
 1. In the app, open **Settings → API keys** and create a key. Choose its scopes (below). The key is shown once.
 2. Call the API:
 
@@ -35,6 +37,10 @@ Locally, `pnpm demo` serves everything at `http://localhost:3000` with no outsid
 | GET | `/api/v1/publications` | read | What was posted, with the latest numbers |
 | GET | `/api/v1/stats/outreach?weeks=` | read | Posts per week vs your target |
 | GET | `/api/v1/stats/impact` | read | Per-post reach and engagement, and engagement by angle, weekday and length |
+| POST | `/api/v1/devices` | write | Register an APNs token for push (iOS app). Works without a plan |
+| DELETE | `/api/v1/devices/{id}` | write | Stop push to a device |
+| GET | `/api/v1/billing/checkout-link` | read | Where to subscribe on the web; 409 if a plan is already active |
+| DELETE | `/api/v1/account` | write | Delete the account and everything in it (body `{"confirm":"delete my account"}`); cancels an active web subscription first |
 
 **There is deliberately no "publish now" endpoint.** Approved posts go out on your schedule, once.
 
@@ -64,7 +70,7 @@ Errors are [RFC 9457](https://www.rfc-editor.org/rfc/rfc9457) problem details (`
 | Status | Title | Meaning |
 |---|---|---|
 | 401 | <a id="unauthorized"></a>Unauthorized | Missing, invalid, expired or revoked key |
-| 402 | <a id="subscription-required"></a>Subscription required | The account has no active trial or subscription |
+| 402 | <a id="subscription-required"></a>Subscription required | The account has no active trial or subscription (`/me`, `/devices`, `/billing/checkout-link` and `/account` still work) |
 | 403 | <a id="missing-scope"></a>Missing scope | The key lacks the scope this endpoint needs |
 | 404 | <a id="not-found"></a>Not found | No such draft (or it belongs to someone else) |
 | 409 | <a id="conflict"></a>Conflict | The draft is in a state that doesn't allow this (e.g. already posted) |

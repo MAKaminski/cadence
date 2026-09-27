@@ -24,6 +24,7 @@ subscription-billed, hosted on Railway as two services (`web`, `worker`) plus Po
 - **Background work**: `jobs` (draft, publish, reminders; `locked_at` lease).
 - **Results**: `metrics`, written 24 h and 72 h after each post by the results routine (sample rows in demo mode, flagged in `platform_data`); read by `src/services/stats.ts`.
 - **Assistant connections (OAuth)**: `oauth_client`, `oauth_consent`, `oauth_access_token`, `oauth_refresh_token`, `oauth_resource`, `oauth_client_resource`, `oauth_client_assertion`, `jwks`, all owned by the Better Auth OAuth provider and JWT plugins. The MCP server reads `oauth_consent` on every call so disconnecting is immediate.
+- **Push**: `devices` (APNs tokens per user; `src/lib/push.ts`, pure wording in `push-message.ts`).
 - **API access**: `apikey` (Better Auth api-key plugin): hashed keys, scopes in `permissions`, per-key rate-limit state.
 
 `apikey.reference_id` references `user.id` (on delete cascade) through a hand-written migration (`drizzle/0005_apikey_user_fk.sql`), because the plugin's generated schema has no foreign key.
@@ -39,12 +40,14 @@ platform-only details go in `platform_data`. Adding a platform means a new enum 
 
 | Pattern | Where | Use it instead of |
 |---|---|---|
+| One bearer verifier | `src/lib/bearer.ts`: API key or OAuth JWT (audience = the calling resource), consent check, per-user limit; used by `/api/v1` and `/api/mcp` | Auth code per front door |
 | One rule set, many front doors | Web server actions, `/api/v1`, `/api/mcp` and the CLI all end in `src/services`; each front door only does transport and auth | A second implementation of approve, edit or check-in |
 | Service layer | `src/services/*`: functions of `(userId, input)` that throw `ServiceError` (mapped to toasts in the app, HTTP statuses in the API) | Rules inside server actions or route handlers |
 | Tenant scoping | `asUser(userId, tx => …)`; the worker uses `asWorker` to claim, then `asUser` per job | Hand-written `where user_id =` clauses (RLS enforces it anyway) |
 | Server-side gate | `requireUser()` / `requireSubscriber()` in `src/lib/session.ts` | Checks in client components or proxy |
 | Validated mutation | Server action + zod, returning `{ ok } \| { ok: false, error }` | Route handlers for form posts |
 | One catalog | `src/lib/catalog.ts` holds every threshold and the lists of settings and routines. The engine, pages, llms.txt and README all read it | Numbers repeated in copy or code |
+| Real or recorded publisher | `adapterFor(platform, account)`: demo mode and App Review accounts (`platform_data.reviewer`) always get the recording publisher | Special cases inside the publisher |
 | Real or demo behind one interface | `Writer` (`llm.ts`), `PlatformAdapter` (`platforms/`), email (`email.ts`), chosen by `isDemo()` in `mode.ts`. Demo mode is refused unless localhost or CI | `if (demo)` branches inside pipelines |
 | Background job | `enqueue(tx, …)` inside the caller's transaction; `claim()` with `SKIP LOCKED`; `finish()` retries up to 3 times, publish once | Timers, or work inside a request |
 | Exactly-once side effect | Write the intent row (`publications.status='publishing'`, unique) and commit, call outside any transaction, then record the result. Lost ones go to `needs_review` | Retrying a call that may have succeeded |
@@ -268,6 +271,15 @@ erDiagram
     timestamp created_at
     timestamp updated_at
   }
+  devices {
+    uuid id PK
+    text user_id
+    device_platform platform
+    text token
+    text environment
+    timestamp_with_time_zone created_at
+    timestamp_with_time_zone last_seen_at
+  }
   drafts {
     uuid id PK
     text user_id
@@ -371,6 +383,7 @@ erDiagram
   session ||--o{ oauth_refresh_token : "session_id"
   user ||--o{ oauth_refresh_token : "user_id"
   user ||--o{ session : "user_id"
+  user ||--o{ devices : "user_id"
   user ||--o{ drafts : "user_id"
   platform_accounts ||--o{ drafts : "platform_account_id"
   user ||--o{ inputs : "user_id"

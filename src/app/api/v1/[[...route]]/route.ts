@@ -5,3 +5,4 @@ import { api } from "@/api/app";
 export const GET = handle(api);
 export const POST = handle(api);
 export const PATCH = handle(api);
+export const DELETE = handle(api);

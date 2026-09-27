@@ -12,9 +12,12 @@ import { OAuthContinue } from "./oauth-continue";
 export const metadata: Metadata = { title: "Sign in" };
 
 export default async function LoginPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
-  const connecting = Boolean((await searchParams).sig);
+  const q = await searchParams;
+  const connecting = Boolean(q.sig);
+  // Only same-site paths, so `next` can't send anyone elsewhere.
+  const next = typeof q.next === "string" && /^\/[a-z]/.test(q.next) ? q.next : null;
   const session = await auth.api.getSession({ headers: await headers() });
-  if (session && !connecting) redirect("/app");
+  if (session && !connecting) redirect(next ?? "/app");
   return (
     <>
       <SiteHeader />
@@ -31,13 +34,14 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
             {connecting && !session && <p className="rounded-lg bg-muted p-3 text-sm">Sign in to connect your AI assistant to Cadence. You'll choose what it can do next.</p>}
             {session && connecting ? <OAuthContinue /> : <>
             {isDemo() ? <>
-              <DemoButton />
+              <DemoButton next={next ?? undefined} />
               <p className="text-xs text-muted-foreground">Demo mode: a throwaway account with sample data. Nothing is sent to LinkedIn, Stripe or any AI service.</p>
-            </> : <LinkedInButton />}
+            </> : <LinkedInButton next={next ?? undefined} />}
             <p className="text-xs text-muted-foreground">
               New here? Signing in creates your account. You'll add a card next for the 7-day free trial.
               By continuing you agree to the <a className="underline" href="/terms">Terms</a> and <a className="underline" href="/privacy">Privacy policy</a>.
             </p>
+            <a className="text-center text-xs text-muted-foreground underline-offset-4 hover:underline" href={`/login/review${connecting ? `?${new URLSearchParams(Object.entries(q).flatMap(([k, v]) => (Array.isArray(v) ? v.map((x) => [k, x]) : v ? [[k, v]] : []))).toString()}` : next ? `?next=${encodeURIComponent(next)}` : ""}`}>App Review sign-in</a>
             </>}
           </CardContent>
         </Card>

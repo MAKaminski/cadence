@@ -4,6 +4,20 @@ All notable changes to Cadence. The format follows [Keep a Changelog](https://ke
 
 ## [Unreleased]
 
+## [0.6.0] - 2026-09-27
+
+Server support for the iOS app (the app itself follows).
+
+### Added
+- The REST API accepts OAuth access tokens issued for `/api/v1` (the iOS app's sign-in: native client, custom-scheme redirect, PKCE, refresh tokens), alongside API keys. Tokens for the API and the MCP server don't cross.
+- One bearer verifier and one per-user rate limit for the API and the MCP server (`src/lib/bearer.ts`).
+- Push notifications (APNs via `apns2`; recorded in demo mode): drafts ready or held, posted, check-in reminder and connection expiring. Push first, email as the fallback for reminders. Notifications never approve anything.
+- `POST/DELETE /devices`, `GET /billing/checkout-link` (refuses when a plan is active), `DELETE /account`.
+- Account deletion in web Settings and the API: cancels an active web subscription, then deletes everything; a test checks no row survives in any table.
+- Sign in with Apple (on when configured; connect LinkedIn afterwards).
+- App Review access: `pnpm reviewer:create` makes the only email/password account (public sign-up stays off); its posts go to the recording publisher and never reach LinkedIn. "App Review sign-in" link on the sign-in page.
+- Sign-in keeps a `next` destination (e.g. checkout from the iOS app) and checkout can return to the app.
+
 ## [0.5.0] - 2026-09-27
 
 ### Added
@@ -65,7 +79,8 @@ All notable changes to Cadence. The format follows [Keep a Changelog](https://ke
 - Three-step guided setup, weekly check-in, settings.
 - Postgres schema with row-level security on every tenant table; generated ERD in ARCHITECTURE.md.
 
-[Unreleased]: https://github.com/MAKaminski/cadence/compare/v0.5.0...HEAD
+[Unreleased]: https://github.com/MAKaminski/cadence/compare/v0.6.0...HEAD
+[0.6.0]: https://github.com/MAKaminski/cadence/compare/v0.5.0...v0.6.0
 [0.5.0]: https://github.com/MAKaminski/cadence/compare/v0.4.0...v0.5.0
 [0.4.0]: https://github.com/MAKaminski/cadence/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/MAKaminski/cadence/compare/v0.2.0...v0.3.0
