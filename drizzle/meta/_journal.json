@@ -50,6 +50,13 @@
       "when": 1790544785874,
       "tag": "0006_oauth_provider",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1790547567795,
+      "tag": "0007_devices",
+      "breakpoints": true
     }
   ]
 }

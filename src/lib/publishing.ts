@@ -11,6 +11,7 @@ import { bodyHash } from "@/lib/drafting";
 import { FAULT } from "@/lib/mode";
 import { adapterFor, PublishError } from "@/platforms";
 import { enqueue } from "@/lib/jobs";
+import { push } from "@/lib/push";
 import { isDemo } from "@/lib/mode";
 import { metrics as metricsTable } from "@/db/schema";
 
@@ -30,7 +31,7 @@ export async function publishDraft(userId: string, draftId: string): Promise<str
 
   try {
     if (!acc) throw new PublishError("No active LinkedIn connection. Sign in with LinkedIn again.", true);
-    const out = await adapterFor(d.platform).publish({ userId, authorUrn: acc.externalId, text: d.body });
+    const out = await adapterFor(d.platform, acc).publish({ userId, authorUrn: acc.externalId, text: d.body });
     if (FAULT() === "after_publish") process.exit(86); // publish-safety test: die after the platform said yes
     await asUser(userId, async (tx) => {
       await tx.update(publications).set({ status: "published", externalPostId: out.externalId, publishedAt: new Date() }).where(eq(publications.id, pubId));
@@ -39,6 +40,7 @@ export async function publishDraft(userId: string, draftId: string): Promise<str
       const later = (h: number) => new Date(Date.now() + (isDemo() ? h * 250 : h * 3_600_000));
       for (const h of [24, 72]) await enqueue(tx, userId, "metrics", pubId, later(h));
     });
+    await push(userId, { kind: "posted", excerpt: d.body.split("\n")[0] }).catch((e) => console.error("[push]", e));
     return `Published ${out.externalId}`;
   } catch (e) {
     const definite = e instanceof PublishError && e.definite;
@@ -54,7 +56,9 @@ export async function publishDraft(userId: string, draftId: string): Promise<str
 export async function captureMetrics(userId: string, publicationId: string): Promise<string> {
   const pub = await asUser(userId, async (tx) => (await tx.select().from(publications).where(eq(publications.id, publicationId)))[0]);
   if (!pub || pub.status !== "published" || !pub.externalPostId || !pub.publishedAt) return "skipped: not published";
-  const m = await adapterFor(pub.platform).fetchMetrics({ userId, externalId: pub.externalPostId, publishedAt: pub.publishedAt });
+  // Posts recorded by the demo/reviewer publisher get sample numbers from it, never a real platform call.
+  const recorded = pub.externalPostId.includes(":demo-") ? { platformData: { reviewer: true } } : null;
+  const m = await adapterFor(pub.platform, recorded).fetchMetrics({ userId, externalId: pub.externalPostId, publishedAt: pub.publishedAt });
   if (!m) return "skipped: analytics not available";
   const { sample, ...numbers } = m;
   await asUser(userId, (tx) => tx.insert(metricsTable).values({ userId, publicationId, platform: pub.platform, ...numbers, platformData: sample ? { sample: true } : {} }));

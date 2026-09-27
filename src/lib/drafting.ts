@@ -10,6 +10,7 @@ import { evaluate, pickBest, type Context, type Evaluation } from "@/engine/eval
 import type { GateRecord } from "@/engine/types";
 import { writer, type Brief, type Model, type Usage } from "@/lib/llm";
 import { enqueue } from "@/lib/jobs";
+import { push } from "@/lib/push";
 
 export class CapReached extends Error {}
 
@@ -59,6 +60,7 @@ export async function draftFromCheckin(userId: string, inputId: string) {
   const first = await spend(userId, async () => { const r = await w.write(brief); posts = r.posts; return r.usage; });
   const share = first.costUsd / Math.max(posts.length, 1);
 
+  let ready = 0, held = 0;
   for (const post of posts) {
     const evals = post.variants.map((v) => evaluate(v, ctx));
     let best: Evaluation = pickBest(evals);
@@ -83,6 +85,7 @@ export async function draftFromCheckin(userId: string, inputId: string) {
       verdict: best.verdict === "held" ? "held" : "ok", rewritten,
       model: first.model, costUsd: Math.round(cost * 10000) / 10000, variantsConsidered: post.variants.length,
     };
+    if (gate.verdict === "held") held++; else ready++;
     await asUser(userId, async (tx) => {
       const [d] = await tx.insert(drafts).values({
         userId, platform: "linkedin", platformAccountId: account?.id ?? null, body: best.text, gate,
@@ -92,6 +95,12 @@ export async function draftFromCheckin(userId: string, inputId: string) {
       if (profile.autoPublish && gate.verdict === "ok") await approveInTx(tx, userId, d.id);
     });
   }
+  await notifyDrafts(userId, ready, held);
+}
+
+// Called at the end of draftFromCheckin (below) once every draft is saved.
+export async function notifyDrafts(userId: string, ready: number, held: number) {
+  if (ready + held > 0) await push(userId, { kind: "drafts_ready", ready, held }).catch((e) => console.error("[push]", e));
 }
 
 // Approval is shared by the server action and automatic posting, so both schedule the same way.

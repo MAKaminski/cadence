@@ -17,6 +17,8 @@ export const TRIAL_DAYS = 7;
 const BASE = (process.env.BETTER_AUTH_URL ?? "http://localhost:3000").replace(/\/$/, "");
 /** The MCP endpoint is the one protected resource OAuth tokens are issued for (RFC 8707 audience). */
 export const MCP_RESOURCE = `${BASE}/api/mcp`;
+/** The REST API is the second protected resource: the iOS app gets tokens for it. */
+export const API_RESOURCE = `${BASE}/api/v1`;
 /** Better Auth mounts at /api/auth, so that is the OAuth issuer. */
 export const ISSUER = `${BASE}/api/auth`;
 /** Scopes an assistant can ask for. `cadence:approve` is optional on the consent screen. */
@@ -25,7 +27,7 @@ export const OAUTH_SCOPES = ["cadence:read", "cadence:write", "cadence:approve"]
 /** Per-key API limit: requests per window. Shown in the docs and sent as RateLimit headers. */
 export const API_LIMIT = { max: 60, windowMs: 60_000 } as const;
 
-const stripeClient = new Stripe(process.env.STRIPE_SECRET_KEY ?? "sk_test_placeholder", {
+export const stripeClient = new Stripe(process.env.STRIPE_SECRET_KEY ?? "sk_test_placeholder", {
   apiVersion: "2026-08-26.dahlia",
 });
 
@@ -35,7 +37,16 @@ export const auth = betterAuth({
   disabledPaths: ["/token"],
   secret: process.env.BETTER_AUTH_SECRET,
   database: drizzleAdapter(db, { provider: "pg", schema }),
+  trustedOrigins: ["https://appleid.apple.com"], // Apple posts its sign-in response back (form_post)
+  // Email and password exist only for App Review: sign-up is disabled, so the only such accounts are
+  // the ones `pnpm reviewer:create` makes (see scripts/reviewer.mts). Their posts never reach LinkedIn.
+  emailAndPassword: { enabled: true, disableSignUp: true },
   socialProviders: {
+    // Sign in with Apple (App Store guideline 4.8), on only when its keys are configured. Apple users
+    // connect LinkedIn afterwards from Settings.
+    ...(process.env.APPLE_CLIENT_ID && process.env.APPLE_CLIENT_SECRET
+      ? { apple: { clientId: process.env.APPLE_CLIENT_ID, clientSecret: process.env.APPLE_CLIENT_SECRET } }
+      : {}),
     linkedin: {
       clientId: process.env.LINKEDIN_CLIENT_ID ?? "",
       clientSecret: process.env.LINKEDIN_CLIENT_SECRET ?? "",
@@ -47,7 +58,7 @@ export const auth = betterAuth({
   },
   account: {
     encryptOAuthTokens: true,
-    accountLinking: { enabled: true, trustedProviders: ["linkedin"] },
+    accountLinking: { enabled: true, trustedProviders: ["linkedin", "apple"] },
   },
   databaseHooks: {
     // Keep the platform-level view of the LinkedIn connection current on every sign-in. The token stays
@@ -83,8 +94,10 @@ export const auth = betterAuth({
       scopes: ["openid", "profile", "offline_access", ...OAUTH_SCOPES],
       allowDynamicClientRegistration: true,
       allowUnauthenticatedClientRegistration: true,
-      resources: [MCP_RESOURCE],
-      clientRegistrationDefaultResources: [MCP_RESOURCE], // every registered assistant may use the MCP server
+      resources: [MCP_RESOURCE, API_RESOURCE],
+      // Every registered client (assistants, the iOS app) may request either resource; each token is
+      // still bound to the one resource it was issued for.
+      clientRegistrationDefaultResources: [MCP_RESOURCE, API_RESOURCE],
     }),
     // Demo sign-in, registered only when mode.ts allows demo mode (localhost or CI). Never in production.
     ...(isDemo() ? [anonymous({ emailDomainName: "demo.cadence.local", generateName: () => "Dana Reyes" })] : []),

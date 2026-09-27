@@ -9,6 +9,8 @@ import { user } from "./auth-schema";
 // platform it belongs to, so adding one is a new enum value and a new adapter, not a data migration.
 // Shared facts are columns; anything only one platform has goes in `platform_data`.
 export const platform = pgEnum("platform", ["linkedin"]);
+/** Where a push token lives. iOS today; Android would be a new value and a new sender. */
+export const devicePlatform = pgEnum("device_platform", ["ios"]);
 
 // Row-level security. The app's database login is a superuser on Railway, and superusers bypass RLS,
 // so every user-scoped transaction switches to this unprivileged role (see src/db/index.ts).
@@ -124,3 +126,14 @@ export const llmUsage = pgTable("llm_usage", {
   costUsd: numeric("cost_usd", { precision: 10, scale: 6 }).notNull(),
   createdAt: created(),
 }, (t) => [index("llm_usage_user_month").on(t.userId, t.createdAt), tenant("llm_usage")]).enableRLS();
+
+/** Push notification targets (APNs device tokens from the iOS app). Deleted when APNs says the token is gone. */
+export const devices = pgTable("devices", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  userId: owner(),
+  platform: devicePlatform("platform").notNull(),
+  token: text("token").notNull(),
+  environment: text("environment", { enum: ["sandbox", "production"] }).notNull(),
+  createdAt: created(),
+  lastSeenAt: timestamp("last_seen_at", { withTimezone: true }).notNull().defaultNow(),
+}, (t) => [uniqueIndex("devices_token").on(t.token), index("devices_user").on(t.userId), tenant("devices")]).enableRLS();

@@ -10,9 +10,10 @@ import { isDemo } from "@/lib/mode";
 
 export const metadata: Metadata = { title: "Start your trial" };
 
-export default async function CheckoutPage() {
+export default async function CheckoutPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
+  const fromIos = (await searchParams).from === "ios";
   const user = await requireUser();
-  if (await hasSubscription(user.id)) redirect("/onboarding");
+  if (await hasSubscription(user.id)) redirect(fromIos ? "/checkout/done?from=ios" : "/onboarding");
   return (
     <>
       <SiteHeader />
@@ -32,7 +33,7 @@ export default async function CheckoutPage() {
               </ul>
             </div>
             {isDemo() && <p className="rounded-lg bg-muted p-3 text-sm">Demo mode: this stands in for the card step. No card is taken and nothing is charged.</p>}
-            <StartTrial plan={PLAN} demo={isDemo()} />
+            <StartTrial plan={PLAN} demo={isDemo()} fromIos={fromIos} />
           </CardContent>
         </Card>
       </main>

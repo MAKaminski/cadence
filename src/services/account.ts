@@ -35,3 +35,30 @@ export async function me(userId: string): Promise<Me> {
     linkedin: r.conn ? { status: r.conn.status, expiresAt: r.conn.expiresAt?.toISOString() ?? null } : null,
   };
 }
+
+/**
+ * Delete an account and everything in it, at the user's request (App Store guideline 5.1.1(v) and plain
+ * decency). Order matters:
+ *  1. cancel an active Stripe subscription immediately, so nobody is billed for a deleted account;
+ *  2. delete the rows that point at the user without a foreign key (`subscription`, whose owner
+ *     column is plugin-managed); `apikey` cascades through drizzle/0005, the rest through user FKs;
+ *  3. delete the user, which removes the encrypted LinkedIn token (`account`), sessions, setup,
+ *     drafts, publications, results, jobs, usage, devices, OAuth consents and tokens.
+ * Tests assert no row for the user survives in any table.
+ */
+export async function deleteAccount(userId: string): Promise<{ cancelledStripe: number }> {
+  const { stripeClient } = await import("@/lib/auth");
+  const { isDemo } = await import("@/lib/mode");
+  const subs = await db.select().from(subscription).where(eq(subscription.referenceId, userId));
+  let cancelledStripe = 0;
+  for (const s of subs) {
+    if (!s.stripeSubscriptionId || !["trialing", "active", "past_due"].includes(s.status ?? "") || isDemo()) continue;
+    await stripeClient.subscriptions.cancel(s.stripeSubscriptionId);
+    cancelledStripe++;
+  }
+  await db.transaction(async (tx) => {
+    await tx.delete(subscription).where(eq(subscription.referenceId, userId));
+    await tx.delete(user).where(eq(user.id, userId));
+  });
+  return { cancelledStripe };
+}

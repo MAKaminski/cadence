@@ -5,6 +5,7 @@ import { asWorker } from "@/db";
 import { inputs, jobs, platformAccounts, profiles, user } from "@/db/schema";
 import { zoned, type Cadence } from "@/engine/schedule";
 import { sendEmail } from "@/lib/email";
+import { push } from "@/lib/push";
 
 const DAY = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 const APP_URL = () => process.env.BETTER_AUTH_URL ?? "http://localhost:3000";
@@ -47,11 +48,13 @@ async function emailOf(userId: string) {
 }
 
 export async function remindCheckin(userId: string, now = new Date()) {
-  const u = await emailOf(userId);
-  if (!u || u.anon) return "skipped: no email";
   const since = new Date(now.getTime() - 6 * 86_400_000);
   const recent = await asWorker((tx) => tx.select({ id: inputs.id }).from(inputs).where(and(eq(inputs.userId, userId), gte(inputs.createdAt, since))).limit(1));
   if (recent.length) return "skipped: already checked in";
+  // Push first; email only when the user has no device.
+  if (await push(userId, { kind: "checkin_reminder" })) return "pushed";
+  const u = await emailOf(userId);
+  if (!u || u.anon) return "skipped: no email";
   await sendEmail(u.email, "Two minutes for this week's posts?", `Your posting days start tomorrow. Jot down what you worked on, learned or noticed this week and Cadence will have drafts ready for you to approve.\n\n${APP_URL()}/app`);
   return "sent";
 }
@@ -62,6 +65,7 @@ export async function remindExpiry(userId: string, accountId: string, now = new 
   if (!u || u.anon || !a?.expiresAt || a.expiresAt < now) return "skipped";
   const days = Math.max(1, Math.round((a.expiresAt.getTime() - now.getTime()) / 86_400_000));
   await asWorker((tx) => tx.update(platformAccounts).set({ status: "expiring" }).where(eq(platformAccounts.id, accountId)));
+  if (await push(userId, { kind: "connection_expiring", days })) return "pushed";
   await sendEmail(u.email, `Your LinkedIn connection ends in ${days} day${days > 1 ? "s" : ""}`, `LinkedIn asks apps to reconnect about every 60 days. Sign in to Cadence with LinkedIn once to keep your scheduled posts going.\n\n${APP_URL()}/login`);
   return "sent";
 }

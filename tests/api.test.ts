@@ -100,6 +100,8 @@ d("public API", () => {
     await db.db.delete(s.apikey).where(eq(s.apikey.id, row.id));
     expect((await call("/me", temp)).status).toBe(401);
     await db.db.update(s.subscription).set({ status: "canceled" }).where(eq(s.subscription.referenceId, B));
-    expect((await call("/me", keyB)).status).toBe(402);
+    expect((await call("/drafts", keyB)).status).toBe(402);
+    // …but an account without a plan can still see itself, get to checkout and delete itself.
+    expect((await call("/me", keyB)).status).toBe(200);
   });
 });

@@ -14,6 +14,7 @@ import { ApiKeys, type KeyRow } from "./api-keys";
 import { db } from "@/db";
 import { apikey, oauthClient, oauthConsent } from "@/db/schema";
 import { Connections, type Connection } from "./connections";
+import { DeleteAccount } from "./delete-account";
 
 export const metadata: Metadata = { title: "Settings" };
 
@@ -77,6 +78,10 @@ export default async function Settings() {
       <Card>
         <CardHeader><CardTitle>Billing</CardTitle><CardDescription>{demo ? "Demo mode: no card, no charges." : `Signed in as ${user.email}. Invoices, card and cancellation are handled by Stripe.`}</CardDescription></CardHeader>
         {!demo && <CardContent><BillingButton /></CardContent>}
+      </Card>
+      <Card id="delete">
+        <CardHeader><CardTitle>Delete account</CardTitle></CardHeader>
+        <CardContent><DeleteAccount /></CardContent>
       </Card>
     </div>
   );
