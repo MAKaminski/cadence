@@ -10,6 +10,9 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { BillingButton } from "./billing-button";
 import { AutoPublish } from "./auto-publish";
+import { ApiKeys, type KeyRow } from "./api-keys";
+import { db } from "@/db";
+import { apikey } from "@/db/schema";
 
 export const metadata: Metadata = { title: "Settings" };
 
@@ -21,6 +24,10 @@ export default async function Settings() {
     clean: (await tx.select({ n: sql<number>`count(*)::int` }).from(drafts).where(and(inArray(drafts.status, ["scheduled", "published"]), sql`${drafts.gate}->>'verdict' = 'ok'`)))[0].n,
     conn: (await tx.select().from(platformAccounts).where(eq(platformAccounts.platform, "linkedin")).limit(1))[0],
     spent: Number((await tx.select({ usd: sql<string>`coalesce(sum(${llmUsage.costUsd}),0)` }).from(llmUsage).where(gte(llmUsage.createdAt, monthStart)))[0].usd),
+  }));
+  const keys: KeyRow[] = (await db.select().from(apikey).where(eq(apikey.referenceId, user.id))).map((k) => ({
+    id: k.id, name: k.name, start: k.start, lastUsed: k.lastRequest?.toISOString() ?? null, createdAt: k.createdAt.toISOString(),
+    scopes: ((JSON.parse(k.permissions ?? "{}") as Record<string, string[]>).cadence ?? ["read"]),
   }));
   const remaining = Math.max(0, LIMITS.autoPublishAfter - s.clean);
   const demo = isDemo();
@@ -45,6 +52,16 @@ export default async function Settings() {
           </CardDescription>
         </CardHeader>
         {!demo && <CardContent><Button variant="outline" render={<a href="/login" />}>Reconnect LinkedIn</Button></CardContent>}
+      </Card>
+      <Card id="api">
+        <CardHeader>
+          <CardTitle>API keys</CardTitle>
+          <CardDescription>
+            For the <a className="underline" href="/docs/api">Cadence API</a> and CLI. Each key allows 60 requests a minute. Keys can never publish immediately;
+            approved posts go out on your schedule.
+          </CardDescription>
+        </CardHeader>
+        <CardContent><ApiKeys keys={keys} /></CardContent>
       </Card>
       <Card>
         <CardHeader><CardTitle>Billing</CardTitle><CardDescription>{demo ? "Demo mode: no card, no charges." : `Signed in as ${user.email}. Invoices, card and cancellation are handled by Stripe.`}</CardDescription></CardHeader>

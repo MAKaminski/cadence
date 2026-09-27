@@ -14,7 +14,7 @@ Cadence turns a short weekly check-in into LinkedIn posts that sound like you, c
 [![Next.js 16](https://img.shields.io/badge/Next.js-16-black)](https://nextjs.org)
 [![Claude](https://img.shields.io/badge/drafts%20by-Claude-6d28d9)](https://www.anthropic.com/claude)
 
-[**Watch the 90-second demo**](https://github.com/MAKaminski/cadence/releases/latest/download/cadence-demo.mp4) · [Demo guide](docs/DEMO.md) · [How it works](#what-cadence-does) · [Run it locally](#run-it-in-two-minutes-no-keys) · [Architecture](ARCHITECTURE.md) · [Request a feature](https://github.com/MAKaminski/cadence/discussions/categories/ideas)
+[**Watch the 90-second demo**](https://github.com/MAKaminski/cadence/releases/latest/download/cadence-demo.mp4) · [Demo guide](docs/DEMO.md) · [How it works](#what-cadence-does) · [Run it locally](#run-it-in-two-minutes-no-keys) · [API](docs/API.md) · [Architecture](ARCHITECTURE.md) · [Request a feature](https://github.com/MAKaminski/cadence/discussions/categories/ideas)
 
 <a href="docs/DEMO.md"><img src="docs/demo/cadence-demo.gif" alt="Cadence demo: drafts appear after a check-in, 'Why this draft' shows every check, the user edits, approves and posts" width="720" /></a>
 
@@ -117,6 +117,23 @@ pnpm demo            # open http://localhost:3000 and choose "Continue as demo u
 
 Demo mode only switches on for `localhost` or CI, never on a public server ([`src/lib/mode.ts`](src/lib/mode.ts)).
 
+## API and CLI
+
+Everything in the app is also available through a documented REST API (**OpenAPI 3.1**, generated from the code with `@hono/zod-openapi`; interactive reference at `/docs/api` on any Cadence server) and a CLI:
+
+```bash
+npm install -g cadence-posts && cadence login --host https://YOUR-CADENCE-HOST
+cat notes.md | cadence checkin     # drafting starts
+cadence drafts && cadence why <id> # every check, what changed, the cost
+cadence approve <id>               # shows the exact text and asks first
+```
+
+- **Scopes:** `read`, `write` and a separate `approve` scope that only you can grant. There is no "publish now" endpoint; approved posts go out on your schedule.
+- **Limits:** 60 requests per minute per key (`RateLimit-*` headers, `429` with `Retry-After`) and 20 check-ins a day.
+- **Errors:** RFC 9457 problem+json.
+
+Full reference: [docs/API.md](docs/API.md) · [OpenAPI spec](docs/openapi.json) · [CLI](cli/README.md)
+
 ## Pricing
 
 **$20/month after a 7-day free trial** (card first, cancel anytime) on the hosted version. Self-hosting is free under the MIT licence; you bring your own LinkedIn app, Stripe account and Anthropic key.
@@ -158,6 +175,8 @@ pnpm dev                 # web app (needs the live variables, or use `pnpm demo`
 pnpm worker              # the job worker
 pnpm test                # unit tests; database tests need TEST_DATABASE_URL
 pnpm test:e2e            # Playwright smoke test against a running `pnpm demo`
+pnpm openapi             # regenerate docs/openapi.json (CI checks it's current)
+pnpm --filter cadence-posts build   # build the CLI
 pnpm demo:record         # re-record the demo video from the running app
 pnpm arch && pnpm catalog   # regenerate ARCHITECTURE.md's ERD and this README's catalog block
 ```
@@ -170,7 +189,11 @@ pnpm arch && pnpm catalog   # regenerate ARCHITECTURE.md's ERD and this README's
 - [x] Weekly check-in → drafts in your voice, with fact, quality, repeat and never-write-about checks
 - [x] Approve, edit, skip, post now; scheduling in your time zone; publishing exactly once
 - [x] Reminders, monthly cost cap, demo mode, demo video
-- [ ] Post analytics, and learning from results (waiting on LinkedIn's approval)
+- [x] Results charts: outreach against your target, impact per post, what works (v0.3)
+- [x] Public API with OpenAPI reference, API keys with scopes and rate limits, CLI (v0.4)
+- [ ] MCP server for Claude, Codex, Cursor and VS Code, and a Claude directory listing (v0.5)
+- [ ] iOS companion app: approvals on the go, voice check-ins, a Results widget (v0.6)
+- [ ] Post analytics from LinkedIn, and learning from results (waiting on LinkedIn's approval)
 - [ ] Images and documents in posts
 - [ ] More platforms. The data model already tags every row with its platform, so [tell us which](https://github.com/MAKaminski/cadence/discussions/categories/ideas)
 

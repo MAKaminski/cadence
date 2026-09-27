@@ -3,6 +3,7 @@ import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { nextCookies } from "better-auth/next-js";
 import { anonymous } from "better-auth/plugins";
 import { stripe } from "@better-auth/stripe";
+import { apiKey } from "@better-auth/api-key";
 import Stripe from "stripe";
 import { db } from "@/db";
 import * as schema from "@/db/schema";
@@ -12,6 +13,8 @@ import { isDemo } from "@/lib/mode";
 
 export const PLAN = "cadence";
 export const TRIAL_DAYS = 7;
+/** Per-key API limit: requests per window. Shown in the docs and sent as RateLimit headers. */
+export const API_LIMIT = { max: 60, windowMs: 60_000 } as const;
 
 const stripeClient = new Stripe(process.env.STRIPE_SECRET_KEY ?? "sk_test_placeholder", {
   apiVersion: "2026-08-26.dahlia",
@@ -52,6 +55,12 @@ export const auth = betterAuth({
         enabled: true,
         plans: [{ name: PLAN, priceId: process.env.STRIPE_PRICE_ID ?? "", freeTrial: { days: TRIAL_DAYS } }],
       },
+    }),
+    // Keys for the public API and CLI. Scopes and limits are set server-side only (src/lib/api-keys.ts).
+    apiKey({
+      defaultPrefix: "cad_",
+      rateLimit: { enabled: true, timeWindow: API_LIMIT.windowMs, maxRequests: API_LIMIT.max },
+      enableMetadata: true,
     }),
     // Demo sign-in, registered only when mode.ts allows demo mode (localhost or CI). Never in production.
     ...(isDemo() ? [anonymous({ emailDomainName: "demo.cadence.local", generateName: () => "Dana Reyes" })] : []),

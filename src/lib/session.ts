@@ -1,10 +1,8 @@
 import "server-only";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
-import { and, eq, inArray } from "drizzle-orm";
 import { auth } from "@/lib/auth";
-import { db } from "@/db";
-import { subscription } from "@/db/schema";
+import { hasSubscription } from "@/services/account";
 
 /** The signed-in user, or a redirect to /login. */
 export async function requireUser() {
@@ -13,13 +11,7 @@ export async function requireUser() {
   return session.user;
 }
 
-/** Trialing or active subscription, else the user goes to checkout. The paywall lives here, on the
- *  server — proxy.ts only does a fast cookie check. */
-export async function hasSubscription(userId: string) {
-  const [row] = await db.select({ status: subscription.status }).from(subscription)
-    .where(and(eq(subscription.referenceId, userId), inArray(subscription.status, ["trialing", "active"]))).limit(1);
-  return Boolean(row);
-}
+export { hasSubscription };
 
 export async function requireSubscriber() {
   const user = await requireUser();

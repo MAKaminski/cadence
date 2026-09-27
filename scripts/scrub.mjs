@@ -3,7 +3,7 @@
 // Tier A (always): pattern-based. Tier B (local only): extra terms from a file OUTSIDE the repo,
 // named by CADENCE_PRIVATE_TERMS, so private vocabulary never has to live in this public repo.
 import { execSync } from "node:child_process";
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, readFileSync, statSync } from "node:fs";
 
 const patterns = [
   ["linkedin profile url", /linkedin\.com\/in\/[a-z0-9-]{3,}/i],
@@ -23,7 +23,7 @@ const files = execSync("git ls-files --cached --others --exclude-standard", { en
   .split("\n").filter((f) => f && !/^(pnpm-lock\.yaml|drizzle\/meta\/|public\/)/.test(f) && !f.endsWith(".svg"));
 let bad = 0;
 for (const f of files) {
-  if (!existsSync(f)) continue;
+  if (!existsSync(f) || !statSync(f).isFile()) continue;
   readFileSync(f, "utf8").split("\n").forEach((line, i) => {
     for (const [name, rx] of patterns) if (rx.test(line)) { console.log(`SCRUB ${f}:${i + 1} ${name}`); bad++; }
     for (const t of extra) if (line.toLowerCase().includes(t.toLowerCase())) { console.log(`SCRUB ${f}:${i + 1} private term`); bad++; }
