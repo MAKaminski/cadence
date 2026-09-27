@@ -43,6 +43,13 @@
       "when": 1790542632029,
       "tag": "0005_apikey_user_fk",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1790544785874,
+      "tag": "0006_oauth_provider",
+      "breakpoints": true
     }
   ]
 }

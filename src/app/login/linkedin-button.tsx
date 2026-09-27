@@ -9,7 +9,9 @@ export function LinkedInButton() {
   return (
     <Button size="lg" className="w-full" disabled={busy} onClick={async () => {
       setBusy(true);
-      const { error } = await authClient.signIn.social({ provider: "linkedin", callbackURL: "/app" });
+      // Mid-connection from an assistant, come back here (with the signed query) to finish connecting.
+      const callbackURL = window.location.search.includes("sig=") ? `/login${window.location.search}` : "/app";
+      const { error } = await authClient.signIn.social({ provider: "linkedin", callbackURL });
       if (error) { toast.error(error.message ?? "LinkedIn sign-in failed. Try again."); setBusy(false); }
     }}>
       {busy ? "Opening LinkedIn…" : "Continue with LinkedIn"}

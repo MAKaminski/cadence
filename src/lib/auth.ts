@@ -1,7 +1,8 @@
 import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { nextCookies } from "better-auth/next-js";
-import { anonymous } from "better-auth/plugins";
+import { anonymous, jwt } from "better-auth/plugins";
+import { oauthProvider } from "@better-auth/oauth-provider";
 import { stripe } from "@better-auth/stripe";
 import { apiKey } from "@better-auth/api-key";
 import Stripe from "stripe";
@@ -13,6 +14,14 @@ import { isDemo } from "@/lib/mode";
 
 export const PLAN = "cadence";
 export const TRIAL_DAYS = 7;
+const BASE = (process.env.BETTER_AUTH_URL ?? "http://localhost:3000").replace(/\/$/, "");
+/** The MCP endpoint is the one protected resource OAuth tokens are issued for (RFC 8707 audience). */
+export const MCP_RESOURCE = `${BASE}/api/mcp`;
+/** Better Auth mounts at /api/auth, so that is the OAuth issuer. */
+export const ISSUER = `${BASE}/api/auth`;
+/** Scopes an assistant can ask for. `cadence:approve` is optional on the consent screen. */
+export const OAUTH_SCOPES = ["cadence:read", "cadence:write", "cadence:approve"] as const;
+
 /** Per-key API limit: requests per window. Shown in the docs and sent as RateLimit headers. */
 export const API_LIMIT = { max: 60, windowMs: 60_000 } as const;
 
@@ -22,6 +31,8 @@ const stripeClient = new Stripe(process.env.STRIPE_SECRET_KEY ?? "sk_test_placeh
 
 export const auth = betterAuth({
   baseURL: process.env.BETTER_AUTH_URL,
+  // The jwt plugin's /token route would clash with OAuth; tokens are issued at /oauth2/token.
+  disabledPaths: ["/token"],
   secret: process.env.BETTER_AUTH_SECRET,
   database: drizzleAdapter(db, { provider: "pg", schema }),
   socialProviders: {
@@ -61,6 +72,19 @@ export const auth = betterAuth({
       defaultPrefix: "cad_",
       rateLimit: { enabled: true, timeWindow: API_LIMIT.windowMs, maxRequests: API_LIMIT.max },
       enableMetadata: true,
+    }),
+    // OAuth 2.1 for assistants (Claude, Codex, Cursor, VS Code) connecting to the MCP server. Clients
+    // register themselves (RFC 7591), the user signs in and consents on /oauth/consent, and access
+    // tokens are JWTs bound to the MCP resource.
+    jwt(),
+    oauthProvider({
+      loginPage: "/login",
+      consentPage: "/oauth/consent",
+      scopes: ["openid", "profile", "offline_access", ...OAUTH_SCOPES],
+      allowDynamicClientRegistration: true,
+      allowUnauthenticatedClientRegistration: true,
+      resources: [MCP_RESOURCE],
+      clientRegistrationDefaultResources: [MCP_RESOURCE], // every registered assistant may use the MCP server
     }),
     // Demo sign-in, registered only when mode.ts allows demo mode (localhost or CI). Never in production.
     ...(isDemo() ? [anonymous({ emailDomainName: "demo.cadence.local", generateName: () => "Dana Reyes" })] : []),

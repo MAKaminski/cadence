@@ -8,6 +8,8 @@ export function llmsTxt(full: boolean) {
     "## Pages", "",
     `- [How it works](${SITE.url}/how-it-works): every setting, weekly action and automatic routine, and how drafts are adjusted`,
     `- [Demo](${SITE.url}/demo): a recorded walkthrough of a full trial`,
+    `- [Integrations](${SITE.url}/integrations): use Cadence from Claude, Codex, Cursor or VS Code (MCP server at ${SITE.url}/api/mcp)`,
+    `- [API reference](${SITE.url}/docs/api): REST API, OpenAPI 3.1`,
     `- [Source code](${SITE.repo}): MIT-licensed; runs locally with \`pnpm demo\``,
     `- [Pricing](${SITE.url}/#pricing): $${SITE.priceUsd}/month after a ${SITE.trialDays}-day free trial`, "",
   ];

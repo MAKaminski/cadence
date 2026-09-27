@@ -12,7 +12,8 @@ import { BillingButton } from "./billing-button";
 import { AutoPublish } from "./auto-publish";
 import { ApiKeys, type KeyRow } from "./api-keys";
 import { db } from "@/db";
-import { apikey } from "@/db/schema";
+import { apikey, oauthClient, oauthConsent } from "@/db/schema";
+import { Connections, type Connection } from "./connections";
 
 export const metadata: Metadata = { title: "Settings" };
 
@@ -29,6 +30,9 @@ export default async function Settings() {
     id: k.id, name: k.name, start: k.start, lastUsed: k.lastRequest?.toISOString() ?? null, createdAt: k.createdAt.toISOString(),
     scopes: ((JSON.parse(k.permissions ?? "{}") as Record<string, string[]>).cadence ?? ["read"]),
   }));
+  const connections: Connection[] = (await db.select({ clientId: oauthConsent.clientId, name: oauthClient.name, scopes: oauthConsent.scopes, since: oauthConsent.createdAt })
+    .from(oauthConsent).innerJoin(oauthClient, eq(oauthClient.clientId, oauthConsent.clientId)).where(eq(oauthConsent.userId, user.id)))
+    .map((c) => ({ ...c, name: c.name ?? "Assistant", since: c.since.toISOString() }));
   const remaining = Math.max(0, LIMITS.autoPublishAfter - s.clean);
   const demo = isDemo();
   return (
@@ -52,6 +56,13 @@ export default async function Settings() {
           </CardDescription>
         </CardHeader>
         {!demo && <CardContent><Button variant="outline" render={<a href="/login" />}>Reconnect LinkedIn</Button></CardContent>}
+      </Card>
+      <Card id="assistants">
+        <CardHeader>
+          <CardTitle>Connected assistants</CardTitle>
+          <CardDescription>AI assistants you've connected over MCP, and what each may do. Disconnecting takes effect immediately.</CardDescription>
+        </CardHeader>
+        <CardContent><Connections items={connections} /></CardContent>
       </Card>
       <Card id="api">
         <CardHeader>

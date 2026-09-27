@@ -1,14 +1,15 @@
 // `pnpm demo`: the whole product on your machine with no keys. Migrates the local database, then runs
 // the web app and the worker in demo mode. Needs Postgres (see README) at DATABASE_URL or the default.
 import { spawn, execSync } from "node:child_process";
-import { randomBytes } from "node:crypto";
 
 const vars = {
   ...process.env,
   CADENCE_DEMO: "1",
   DATABASE_URL: process.env.DATABASE_URL ?? "postgres://postgres:dev@localhost:55432/cadence",
   BETTER_AUTH_URL: process.env.BETTER_AUTH_URL ?? "http://localhost:3000",
-  BETTER_AUTH_SECRET: process.env.BETTER_AUTH_SECRET ?? randomBytes(32).toString("hex"),
+  // A fixed, public secret is fine here: demo mode only runs on localhost or in CI (src/lib/mode.ts). It
+  // must be stable across runs because it encrypts the OAuth signing keys stored in the database.
+  BETTER_AUTH_SECRET: process.env.BETTER_AUTH_SECRET ?? "cadence-demo-only-secret-never-use-in-production",
   WORKER_POLL_MS: process.env.WORKER_POLL_MS ?? "1500",
 };
 execSync("pnpm db:migrate", { stdio: "inherit", env: vars });

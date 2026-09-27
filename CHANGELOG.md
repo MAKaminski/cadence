@@ -4,6 +4,22 @@ All notable changes to Cadence. The format follows [Keep a Changelog](https://ke
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-09-27
+
+### Added
+- MCP server at `/api/mcp` (Streamable HTTP via `mcp-handler` 2 / MCP SDK v2) with 9 tools (status, setup, list and get drafts with the "why", results, save check-in, edit, skip, approve) and a `weekly_checkin` prompt. Tool annotations mark read-only and destructive tools; there is no publish-now tool.
+- OAuth 2.1 authorization server for assistants (`@better-auth/oauth-provider` + JWT): dynamic client registration, PKCE, RFC 9728 and RFC 8414 metadata, tokens bound to the MCP resource, a consent screen with an optional, unticked-by-default approve scope.
+- API keys also work as MCP bearer tokens (for Claude Code and Codex CLI).
+- `/integrations` page: Claude connector steps, Claude Code command, Codex config, one-click Cursor and VS Code installs.
+- Settings → Connected assistants with Disconnect, which takes effect immediately.
+- Per-user MCP rate limit (60/min), 402 without a plan.
+- `docs/MCP.md` and a Claude directory submission pack (`docs/claude-directory.md`).
+- An end-to-end test of the whole assistant connection (`e2e/mcp.spec.ts`).
+
+### Fixed
+- Consent buttons are disabled until the page is interactive, so an early click can't be silently lost.
+- The e2e onboarding steps wait for each step to render (a race that made the smoke test flaky).
+
 ## [0.4.0] - 2026-09-27
 
 ### Added
@@ -49,7 +65,8 @@ All notable changes to Cadence. The format follows [Keep a Changelog](https://ke
 - Three-step guided setup, weekly check-in, settings.
 - Postgres schema with row-level security on every tenant table; generated ERD in ARCHITECTURE.md.
 
-[Unreleased]: https://github.com/MAKaminski/cadence/compare/v0.4.0...HEAD
+[Unreleased]: https://github.com/MAKaminski/cadence/compare/v0.5.0...HEAD
+[0.5.0]: https://github.com/MAKaminski/cadence/compare/v0.4.0...v0.5.0
 [0.4.0]: https://github.com/MAKaminski/cadence/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/MAKaminski/cadence/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/MAKaminski/cadence/compare/v0.1.0...v0.2.0

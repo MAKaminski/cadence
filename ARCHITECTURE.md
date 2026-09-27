@@ -10,7 +10,7 @@ subscription-billed, hosted on Railway as two services (`web`, `worker`) plus Po
 |---|---|---|
 | Front-end | Next.js 16 App Router. Public: `/`, `/how-it-works`, `/demo`, `/login`, `/terms`, `/privacy`, plus `sitemap.xml`, `robots.txt`, `opengraph-image`, `/llms.txt`, `/llms-full.txt`. Signed in: `/checkout`, `/onboarding` (3-step stepper), `/app` (This week: check-in and draft cards with "Why this draft"), `/app/published`, `/app/settings`. shadcn/ui on Base UI | Server components gate every signed-in page; `src/proxy.ts` is only a fast cookie check. `catalog-view.tsx` renders `src/lib/catalog.ts` |
 | Back-end | Postgres. Better Auth tables (`user`, `session`, `account`, `verification`, `subscription`) and app tables (`platform_accounts`, `profiles`, `inputs`, `drafts`, `publications`, `metrics`, `jobs`, `llm_usage`) | Row-level security on every app table; queries run as the unprivileged `cadence_app` role via `asUser()` / `asWorker()` in `src/db/index.ts` |
-| Middleware | **Services** (`src/services/`: account, profile, drafts, publications, stats, errors): the one place business rules live; the web app's server actions, the public API and the MCP server are thin clients. **Public API** (`src/api/app.ts`, Hono + `@hono/zod-openapi`, mounted at `/api/v1`; OpenAPI at `/api/v1/openapi.json`, Scalar reference at `/docs/api`; API keys via `@better-auth/api-key`). Better Auth (LinkedIn OIDC + `w_member_social` in one consent, tokens encrypted; `anonymous` plugin in demo mode only). Stripe plugin (checkout with 7-day trial, portal, webhook at `/api/auth/stripe/webhook`). Server actions (`onboarding/actions.ts`, `app/actions.ts`). **Engine** (`src/engine/`: format, gate, facts, suppress, evaluate, schedule; pure). **Writer** (`src/lib/llm.ts`: Claude or demo). **Platform adapter** (`src/platforms/`: LinkedIn Posts API or demo). **Pipelines** (`drafting.ts`, `publishing.ts`, `reminders.ts`). **Job queue** (`jobs.ts`) | Thresholds live only in `src/lib/catalog.ts` |
+| Middleware | **Services** (`src/services/`: account, profile, drafts, publications, stats, errors): the one place business rules live; the web app's server actions, the public API and the MCP server are thin clients. **MCP server** (`src/mcp/server.ts` tools over the services, `src/mcp/auth.ts` token and key verification, mounted at `/api/mcp` with `mcp-handler`). **OAuth server for assistants** (`@better-auth/oauth-provider` + `jwt`; metadata under `/.well-known/*`; consent at `/oauth/consent`). **Public API** (`src/api/app.ts`, Hono + `@hono/zod-openapi`, mounted at `/api/v1`; OpenAPI at `/api/v1/openapi.json`, Scalar reference at `/docs/api`; API keys via `@better-auth/api-key`). Better Auth (LinkedIn OIDC + `w_member_social` in one consent, tokens encrypted; `anonymous` plugin in demo mode only). Stripe plugin (checkout with 7-day trial, portal, webhook at `/api/auth/stripe/webhook`). Server actions (`onboarding/actions.ts`, `app/actions.ts`). **Engine** (`src/engine/`: format, gate, facts, suppress, evaluate, schedule; pure). **Writer** (`src/lib/llm.ts`: Claude or demo). **Platform adapter** (`src/platforms/`: LinkedIn Posts API or demo). **Pipelines** (`drafting.ts`, `publishing.ts`, `reminders.ts`). **Job queue** (`jobs.ts`) | Thresholds live only in `src/lib/catalog.ts` |
 | Infrastructure | Railway: `web` (`railway/web.json`, runs migrations before deploy) and `worker` (`railway/worker.json`, esbuild bundle `dist/worker.mjs`), Postgres. GitHub Actions: CI (scrub, arch, catalog, typecheck, lint, migrate, unit and DB tests, build, Playwright demo smoke) and release (notes from CHANGELOG, demo MP4 attached) | Secrets only in Railway variables. `pnpm demo` runs everything locally with no keys |
 
 ## Features and the tables they own
@@ -23,6 +23,7 @@ subscription-billed, hosted on Railway as two services (`web`, `worker`) plus Po
 - **Publishing**: `publications` (one per draft, unique; the only publish state machine) and `drafts.approved_body_hash`.
 - **Background work**: `jobs` (draft, publish, reminders; `locked_at` lease).
 - **Results**: `metrics`, written 24 h and 72 h after each post by the results routine (sample rows in demo mode, flagged in `platform_data`); read by `src/services/stats.ts`.
+- **Assistant connections (OAuth)**: `oauth_client`, `oauth_consent`, `oauth_access_token`, `oauth_refresh_token`, `oauth_resource`, `oauth_client_resource`, `oauth_client_assertion`, `jwks`, all owned by the Better Auth OAuth provider and JWT plugins. The MCP server reads `oauth_consent` on every call so disconnecting is immediate.
 - **API access**: `apikey` (Better Auth api-key plugin): hashed keys, scopes in `permissions`, per-key rate-limit state.
 
 `apikey.reference_id` references `user.id` (on delete cascade) through a hand-written migration (`drizzle/0005_apikey_user_fk.sql`), because the plugin's generated schema has no foreign key.
@@ -38,6 +39,7 @@ platform-only details go in `platform_data`. Adding a platform means a new enum 
 
 | Pattern | Where | Use it instead of |
 |---|---|---|
+| One rule set, many front doors | Web server actions, `/api/v1`, `/api/mcp` and the CLI all end in `src/services`; each front door only does transport and auth | A second implementation of approve, edit or check-in |
 | Service layer | `src/services/*`: functions of `(userId, input)` that throw `ServiceError` (mapped to toasts in the app, HTTP statuses in the API) | Rules inside server actions or route handlers |
 | Tenant scoping | `asUser(userId, tx => …)`; the worker uses `asWorker` to claim, then `asUser` per job | Hand-written `where user_id =` clauses (RLS enforces it anyway) |
 | Server-side gate | `requireUser()` / `requireSubscriber()` in `src/lib/session.ts` | Checks in client components or proxy |
@@ -94,6 +96,129 @@ erDiagram
     timestamp updated_at
     text permissions
     text metadata
+  }
+  jwks {
+    text id PK
+    text public_key
+    text private_key
+    timestamp created_at
+    timestamp expires_at
+    text alg
+    text crv
+  }
+  oauth_access_token {
+    text id PK
+    text token
+    text client_id
+    text session_id
+    text user_id
+    text reference_id
+    text authorization_code_id
+    text__ resources
+    text__ requested_user_info_claims
+    text refresh_id
+    timestamp expires_at
+    timestamp created_at
+    timestamp revoked
+    jsonb confirmation
+    text__ scopes
+  }
+  oauth_client {
+    text id PK
+    text client_id
+    text client_secret
+    text client_discovery_id
+    boolean disabled
+    boolean skip_consent
+    boolean enable_end_session
+    text subject_type
+    text__ scopes
+    text__ client_credentials_scopes
+    text user_id
+    timestamp created_at
+    timestamp updated_at
+    text name
+    text uri
+    text icon
+    text__ contacts
+    text tos
+    text policy
+    text software_id
+    text software_version
+    text software_statement
+    text__ redirect_uris
+    text__ post_logout_redirect_uris
+    text backchannel_logout_uri
+    boolean backchannel_logout_session_required
+    text token_endpoint_auth_method
+    text application_type
+    text jwks
+    text jwks_uri
+    text__ grant_types
+    text__ response_types
+    boolean require_pkce
+    boolean dpop_bound_access_tokens
+    text reference_id
+    jsonb metadata
+  }
+  oauth_client_assertion {
+    text id PK
+    timestamp expires_at
+  }
+  oauth_client_resource {
+    text id PK
+    text client_id
+    text resource_id
+    jsonb metadata
+    timestamp created_at
+  }
+  oauth_consent {
+    text id PK
+    text client_id
+    text user_id
+    text reference_id
+    text__ resources
+    text__ requested_user_info_claims
+    text__ scopes
+    timestamp created_at
+    timestamp updated_at
+  }
+  oauth_refresh_token {
+    text id PK
+    text token
+    text client_id
+    text session_id
+    text user_id
+    text reference_id
+    text authorization_code_id
+    text__ resources
+    text__ requested_user_info_claims
+    timestamp expires_at
+    timestamp created_at
+    timestamp revoked
+    timestamp rotated_at
+    text rotation_replay_response
+    timestamp rotation_replay_expires_at
+    timestamp auth_time
+    jsonb confirmation
+    text__ scopes
+  }
+  oauth_resource {
+    text id PK
+    text identifier
+    text name
+    integer access_token_ttl
+    integer refresh_token_ttl
+    text signing_algorithm
+    text signing_key_id
+    text__ allowed_scopes
+    jsonb custom_claims
+    boolean dpop_bound_access_tokens_required
+    boolean disabled
+    timestamp created_at
+    timestamp updated_at
+    integer policy_version
+    jsonb metadata
   }
   session {
     text id PK
@@ -233,6 +358,18 @@ erDiagram
     timestamp_with_time_zone created_at
   }
   user ||--o{ account : "user_id"
+  oauth_client ||--o{ oauth_access_token : "client_id"
+  session ||--o{ oauth_access_token : "session_id"
+  user ||--o{ oauth_access_token : "user_id"
+  oauth_refresh_token ||--o{ oauth_access_token : "refresh_id"
+  user ||--o{ oauth_client : "user_id"
+  oauth_client ||--o{ oauth_client_resource : "client_id"
+  oauth_resource ||--o{ oauth_client_resource : "resource_id"
+  oauth_client ||--o{ oauth_consent : "client_id"
+  user ||--o{ oauth_consent : "user_id"
+  oauth_client ||--o{ oauth_refresh_token : "client_id"
+  session ||--o{ oauth_refresh_token : "session_id"
+  user ||--o{ oauth_refresh_token : "user_id"
   user ||--o{ session : "user_id"
   user ||--o{ drafts : "user_id"
   platform_accounts ||--o{ drafts : "platform_account_id"

@@ -5,7 +5,7 @@
   },
   {
     "t": 5.4,
-    "title": "Everything is visible: 12 settings you choose once, 5 weekly actions, 10 automatic routines"
+    "title": "Everything is visible: 12 settings you choose once, 5 weekly actions, 11 automatic routines"
   },
   {
     "t": 10.5,
@@ -28,27 +28,27 @@
     "title": "Setup 2 of 3: three of your own posts teach it your voice, plus topics and a never-write-about list"
   },
   {
-    "t": 32.9,
+    "t": 33,
     "title": "Setup 3 of 3: posts per week, days, time, and the writing model (Claude Sonnet 5 or Opus 5)"
   },
   {
-    "t": 38,
+    "t": 38.1,
     "title": "Each week: two minutes of rough notes. That's the only regular input"
   },
   {
-    "t": 43.1,
+    "t": 43.2,
     "title": "Cadence writes 2 versions of each post in your voice, checks both, and keeps the better one"
   },
   {
-    "t": 47.9,
+    "t": 48,
     "title": "Drafts are ready. Nothing posts until you approve it"
   },
   {
-    "t": 51.5,
+    "t": 51.6,
     "title": "Why this draft: the angle, every check it passed, what was fixed automatically, and what it cost"
   },
   {
-    "t": 58.6,
+    "t": 58.7,
     "title": "Edit anything. Your version is re-checked but never rewritten: you're the author"
   },
   {
@@ -61,14 +61,38 @@
   },
   {
     "t": 72.3,
-    "title": "Published. Results arrive once LinkedIn approves analytics; the demo shows sample numbers"
+    "title": "Published, with each post's latest numbers (sample numbers in demo mode until LinkedIn approves analytics)"
   },
   {
-    "t": 76.9,
-    "title": "Settings: edit your setup, see this month's model use, and unlock automatic posting after 5 clean approvals"
+    "t": 77.8,
+    "title": "Results. Outreach: posts per week against your target; solid bars hit it, faded bars fell short"
   },
   {
-    "t": 81.4,
+    "t": 82.8,
+    "title": "Impact: reach (bars) and engagement rate (line) per post, a 4-post average and your best post"
+  },
+  {
+    "t": 87.9,
+    "title": "What works for you: engagement by angle, weekday and length. Each chart has a table view too"
+  },
+  {
+    "t": 92.5,
+    "title": "Settings: model use, automatic posting (after 5 clean approvals), connected assistants and API keys"
+  },
+  {
+    "t": 97,
+    "title": "API keys have read, write and a separate approve scope that only you can grant"
+  },
+  {
+    "t": 101.1,
+    "title": "Use Cadence from Claude, Codex, Cursor or VS Code: it's an MCP server with one-click installs"
+  },
+  {
+    "t": 109,
+    "title": "Or script it: a REST API with an OpenAPI reference, rate limits, and a CLI"
+  },
+  {
+    "t": 113.6,
     "title": "Every rule is public. Run it yourself: git clone, pnpm install, pnpm demo. MIT licensed."
   }
 ]
