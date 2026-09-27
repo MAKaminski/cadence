@@ -1,0 +1,74 @@
+[
+  {
+    "t": 0,
+    "title": "Cadence: LinkedIn posts in your own voice, from two minutes a week. $20/month after a 7-day trial."
+  },
+  {
+    "t": 5.4,
+    "title": "Everything is visible: 12 settings you choose once, 5 weekly actions, 10 automatic routines"
+  },
+  {
+    "t": 10.5,
+    "title": "Every draft is fixed, rewritten once, or held for you, by the same published rules"
+  },
+  {
+    "t": 15.1,
+    "title": "Sign in. Real users use LinkedIn's official sign-in; the demo uses a throwaway account"
+  },
+  {
+    "t": 18.7,
+    "title": "Card first, 7 days free. Real users go to Stripe Checkout; the demo takes no card"
+  },
+  {
+    "t": 22.3,
+    "title": "Setup 1 of 3: who you are, who you want to reach, and the only facts Cadence may state"
+  },
+  {
+    "t": 27.9,
+    "title": "Setup 2 of 3: three of your own posts teach it your voice, plus topics and a never-write-about list"
+  },
+  {
+    "t": 32.9,
+    "title": "Setup 3 of 3: posts per week, days, time, and the writing model (Claude Sonnet 5 or Opus 5)"
+  },
+  {
+    "t": 38,
+    "title": "Each week: two minutes of rough notes. That's the only regular input"
+  },
+  {
+    "t": 43.1,
+    "title": "Cadence writes 2 versions of each post in your voice, checks both, and keeps the better one"
+  },
+  {
+    "t": 47.9,
+    "title": "Drafts are ready. Nothing posts until you approve it"
+  },
+  {
+    "t": 51.5,
+    "title": "Why this draft: the angle, every check it passed, what was fixed automatically, and what it cost"
+  },
+  {
+    "t": 58.6,
+    "title": "Edit anything. Your version is re-checked but never rewritten: you're the author"
+  },
+  {
+    "t": 64.2,
+    "title": "Approved: the exact text is locked and scheduled into your next posting slot, in your time zone"
+  },
+  {
+    "t": 68.8,
+    "title": "Or post now. It goes out once through LinkedIn's official API (recorded, not sent, in the demo)"
+  },
+  {
+    "t": 72.3,
+    "title": "Published. Results arrive once LinkedIn approves analytics; the demo shows sample numbers"
+  },
+  {
+    "t": 76.9,
+    "title": "Settings: edit your setup, see this month's model use, and unlock automatic posting after 5 clean approvals"
+  },
+  {
+    "t": 81.4,
+    "title": "Every rule is public. Run it yourself: git clone, pnpm install, pnpm demo. MIT licensed."
+  }
+]

@@ -1,0 +1,11 @@
+name: Platform request
+description: Ask for Cadence to post somewhere besides LinkedIn
+labels: [platform]
+body:
+  - type: input
+    id: platform
+    attributes: { label: Which platform }
+    validations: { required: true }
+  - type: textarea
+    id: why
+    attributes: { label: How you'd use it, description: "Same posts adapted, or different ones?" }

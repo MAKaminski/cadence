@@ -12,6 +12,8 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    "dist/**",           // bundled worker
+    "test-results/**",   // Playwright output
   ]),
 ]);
 

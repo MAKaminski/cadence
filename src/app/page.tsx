@@ -2,6 +2,9 @@ import Link from "next/link";
 import { Check, ShieldCheck, CalendarClock, PenLine } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { SiteFooter, SiteHeader } from "@/components/site-chrome";
+import { Adjustments, CountsStrip } from "@/components/catalog-view";
+import { JsonLd } from "@/components/json-ld";
+import { SITE } from "@/lib/site";
 
 const steps = [
   { icon: PenLine, title: "Tell it who you are, once", body: "Your role, your audience, three posts you've written, and the facts you're happy to see in print. About eight minutes." },
@@ -20,6 +23,12 @@ export default function Home() {
   return (
     <>
       <SiteHeader />
+      <JsonLd data={{
+        "@context": "https://schema.org", "@type": "SoftwareApplication", name: "Cadence", applicationCategory: "BusinessApplication",
+        operatingSystem: "Web", description: SITE.description, url: SITE.url, image: `${SITE.url}/icon.png`,
+        offers: { "@type": "Offer", price: String(SITE.priceUsd), priceCurrency: "USD", description: `Monthly, after a ${SITE.trialDays}-day free trial` },
+        codeRepository: SITE.repo, license: "https://opensource.org/licenses/MIT",
+      }} />
       <main className="flex-1">
         <section className="mx-auto max-w-5xl px-4 pt-16 pb-14 sm:pt-24">
           <p className="text-sm font-medium text-primary">For people who mean to post on LinkedIn and don't</p>
@@ -32,6 +41,7 @@ export default function Home() {
           </p>
           <div className="mt-8 flex flex-wrap items-center gap-3">
             <Button size="lg" render={<Link href="/login" />}>Start your 7-day free trial</Button>
+            <Button size="lg" variant="outline" render={<Link href="/demo" />}>Watch the demo</Button>
             <span className="text-sm text-muted-foreground">$20 a month after the trial. Cancel anytime.</span>
           </div>
         </section>
@@ -49,6 +59,14 @@ export default function Home() {
               </div>
             ))}
           </div>
+        </section>
+
+        <section className="mx-auto flex max-w-5xl flex-col gap-6 px-4 pt-16">
+          <h2 className="text-2xl font-semibold tracking-tight">Everything it does, in plain sight</h2>
+          <CountsStrip />
+          <p className="text-muted-foreground">Every draft is checked the same way, and each one tells you which of these applied:</p>
+          <Adjustments />
+          <p className="text-sm"><Link className="underline" href="/how-it-works">See every setting and routine</Link> · <a className="underline" href={SITE.ideas}>Request a feature</a></p>
         </section>
 
         <section className="mx-auto grid max-w-5xl gap-10 px-4 py-16 sm:grid-cols-2">

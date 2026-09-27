@@ -17,6 +17,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
           <Wordmark />
           <nav className="flex items-center gap-5 text-sm">
             <Link href="/app">This week</Link>
+            <Link href="/app/published">Published</Link>
             <Link href="/app/settings">Settings</Link>
           </nav>
         </div>

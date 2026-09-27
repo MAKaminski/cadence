@@ -6,6 +6,8 @@ import { profiles } from "@/db/schema";
 import { requireSubscriber } from "@/lib/session";
 import { Wordmark } from "@/components/site-chrome";
 import { Stepper } from "./stepper";
+import { isDemo } from "@/lib/mode";
+import { PERSONA } from "@/lib/demo-persona";
 
 export const metadata: Metadata = { title: "Set up" };
 
@@ -24,7 +26,7 @@ export default async function OnboardingPage({ searchParams }: { searchParams: P
     <div className="flex flex-1 flex-col">
       <header className="border-b"><div className="mx-auto flex h-14 max-w-2xl items-center px-4"><Wordmark /></div></header>
       <main className="mx-auto w-full max-w-2xl flex-1 px-4 py-10">
-        <Stepper initial={{
+        <Stepper example={isDemo() ? PERSONA : undefined} initial={{
           step: editing ? 1 : (p?.onboardingStep ?? 1),
           role: str(about.role), audience: str(about.audience), goals: str(about.goals), facts: list(p?.facts).join("\n"),
           samples: [samples[0] ?? "", samples[1] ?? "", samples[2] ?? ""], topics: list(p?.topics).join(", "), noGo: list(p?.noGo).join(", "),

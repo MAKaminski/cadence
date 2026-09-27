@@ -1,12 +1,14 @@
 import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { nextCookies } from "better-auth/next-js";
+import { anonymous } from "better-auth/plugins";
 import { stripe } from "@better-auth/stripe";
 import Stripe from "stripe";
 import { db } from "@/db";
 import * as schema from "@/db/schema";
 import { platformAccounts } from "@/db/schema";
 import { asUser } from "@/db";
+import { isDemo } from "@/lib/mode";
 
 export const PLAN = "cadence";
 export const TRIAL_DAYS = 7;
@@ -45,12 +47,14 @@ export const auth = betterAuth({
     stripe({
       stripeClient,
       stripeWebhookSecret: process.env.STRIPE_WEBHOOK_SECRET ?? "",
-      createCustomerOnSignUp: true,
+      createCustomerOnSignUp: !isDemo(), // demo mode never talks to Stripe
       subscription: {
         enabled: true,
         plans: [{ name: PLAN, priceId: process.env.STRIPE_PRICE_ID ?? "", freeTrial: { days: TRIAL_DAYS } }],
       },
     }),
+    // Demo sign-in, registered only when mode.ts allows demo mode (localhost or CI). Never in production.
+    ...(isDemo() ? [anonymous({ emailDomainName: "demo.cadence.local", generateName: () => "Dana Reyes" })] : []),
     nextCookies(), // must stay last: lets server actions set the session cookie
   ],
 });

@@ -1,0 +1,36 @@
+import { expect, test } from "@playwright/test";
+
+test("demo: sign up, trial, set up, check in, approve, publish", async ({ page }) => {
+  await page.goto("/");
+  await page.getByRole("link", { name: /start|try|sign in/i }).first().click();
+  await page.getByRole("button", { name: "Continue as demo user" }).click();
+  await page.getByRole("button", { name: /start demo trial/i }).click();
+
+  // Onboarding: example answers for steps 1 and 2, defaults for step 3.
+  await page.getByRole("button", { name: /fill in the example answers/i }).click();
+  await page.getByRole("button", { name: "Save and continue" }).click();
+  await page.getByRole("button", { name: /fill in the example answers/i }).click();
+  await page.getByRole("button", { name: "Save and continue" }).click();
+  await page.getByRole("button", { name: "Finish setup" }).click();
+
+  await expect(page.getByRole("heading", { name: "This week" })).toBeVisible();
+  await page.getByRole("button", { name: /use example notes/i }).click();
+  await page.getByRole("button", { name: "Save check-in" }).click();
+
+  const first = page.getByTestId("draft").first();
+  await expect(first).toBeVisible();
+  await first.getByText("Why this draft").click();
+  await expect(first.getByTestId("why")).toContainText("Fact check");
+
+  const ready = page.locator('[data-testid="draft"][data-status="draft"]').first();
+  await ready.getByRole("button", { name: "Approve" }).click();
+  const scheduled = page.locator('[data-testid="draft"][data-status="scheduled"]').first();
+  await expect(scheduled).toBeVisible();
+  await scheduled.getByRole("button", { name: "Post now" }).click();
+
+  await expect(scheduled).toHaveCount(0); // it leaves the list once it's posted
+  await expect(async () => {
+    await page.goto("/app/published");
+    await expect(page.getByTestId("publication").first()).toContainText("Published", { timeout: 2000 });
+  }).toPass({ timeout: 30_000 });
+});
