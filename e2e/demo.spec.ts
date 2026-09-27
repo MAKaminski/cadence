@@ -9,8 +9,10 @@ test("demo: sign up, trial, set up, check in, approve, publish", async ({ page }
   // Onboarding: example answers for steps 1 and 2, defaults for step 3.
   await page.getByRole("button", { name: /fill in the example answers/i }).click();
   await page.getByRole("button", { name: "Save and continue" }).click();
+  await expect(page.getByText("Step 2 of 3")).toBeVisible(); // wait for the step to change before filling
   await page.getByRole("button", { name: /fill in the example answers/i }).click();
   await page.getByRole("button", { name: "Save and continue" }).click();
+  await expect(page.getByText("Step 3 of 3")).toBeVisible();
   await page.getByRole("button", { name: "Finish setup" }).click();
 
   await expect(page.getByRole("heading", { name: "This week" })).toBeVisible();

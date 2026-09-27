@@ -14,7 +14,7 @@ Cadence turns a short weekly check-in into LinkedIn posts that sound like you, c
 [![Next.js 16](https://img.shields.io/badge/Next.js-16-black)](https://nextjs.org)
 [![Claude](https://img.shields.io/badge/drafts%20by-Claude-6d28d9)](https://www.anthropic.com/claude)
 
-[**Watch the 90-second demo**](https://github.com/MAKaminski/cadence/releases/latest/download/cadence-demo.mp4) · [Demo guide](docs/DEMO.md) · [How it works](#what-cadence-does) · [Run it locally](#run-it-in-two-minutes-no-keys) · [API](docs/API.md) · [Architecture](ARCHITECTURE.md) · [Request a feature](https://github.com/MAKaminski/cadence/discussions/categories/ideas)
+[**Watch the 90-second demo**](https://github.com/MAKaminski/cadence/releases/latest/download/cadence-demo.mp4) · [Demo guide](docs/DEMO.md) · [How it works](#what-cadence-does) · [Run it locally](#run-it-in-two-minutes-no-keys) · [MCP](docs/MCP.md) · [API](docs/API.md) · [Architecture](ARCHITECTURE.md) · [Request a feature](https://github.com/MAKaminski/cadence/discussions/categories/ideas)
 
 <a href="docs/DEMO.md"><img src="docs/demo/cadence-demo.gif" alt="Cadence demo: drafts appear after a check-in, 'Why this draft' shows every check, the user edits, approves and posts" width="720" /></a>
 
@@ -117,6 +117,16 @@ pnpm demo            # open http://localhost:3000 and choose "Continue as demo u
 
 Demo mode only switches on for `localhost` or CI, never on a public server ([`src/lib/mode.ts`](src/lib/mode.ts)).
 
+## Use it from Claude, Codex, Cursor or VS Code
+
+Cadence is a remote **MCP server** (`/api/mcp`, OAuth 2.1). Connect it once, then say *"let's do my Cadence check-in"*: your assistant interviews you, saves the notes, walks through each draft and why it reads that way, and shows your results.
+
+```bash
+claude mcp add --transport http cadence https://YOUR-CADENCE-HOST/api/mcp   # Claude Code
+```
+
+Claude web and desktop: Settings → Connectors → Add custom connector. Cursor and VS Code have one-click buttons on `/integrations`. You choose on the consent screen whether the assistant may approve drafts; it can never post immediately, and **Disconnect** in Settings takes effect at once. Details: [docs/MCP.md](docs/MCP.md).
+
 ## API and CLI
 
 Everything in the app is also available through a documented REST API (**OpenAPI 3.1**, generated from the code with `@hono/zod-openapi`; interactive reference at `/docs/api` on any Cadence server) and a CLI:
@@ -165,7 +175,7 @@ See [ARCHITECTURE.md](ARCHITECTURE.md) for the generated ERD, which tables each 
 
 1. Create a LinkedIn app at <https://www.linkedin.com/developers/apps>. Add the products **Sign In with LinkedIn using OpenID Connect** and **Share on LinkedIn**, and the redirect URL `https://YOUR_DOMAIN/api/auth/callback/linkedin`.
 2. Create a Stripe product with a monthly price, plus a webhook to `https://YOUR_DOMAIN/api/auth/stripe/webhook`.
-3. Set the variables listed in [`src/lib/env.ts`](src/lib/env.ts) on both services, never in git.
+3. Set the variables listed in [`src/lib/env.ts`](src/lib/env.ts) on both services, never in git. Treat `BETTER_AUTH_SECRET` as permanent: it encrypts stored LinkedIn tokens and the OAuth signing keys, so rotating it means everyone reconnects (and you must clear the `jwks` table).
 4. Deploy `web` (runs migrations before each deploy) and `worker` from this repo.
 
 ## Development
@@ -191,7 +201,8 @@ pnpm arch && pnpm catalog   # regenerate ARCHITECTURE.md's ERD and this README's
 - [x] Reminders, monthly cost cap, demo mode, demo video
 - [x] Results charts: outreach against your target, impact per post, what works (v0.3)
 - [x] Public API with OpenAPI reference, API keys with scopes and rate limits, CLI (v0.4)
-- [ ] MCP server for Claude, Codex, Cursor and VS Code, and a Claude directory listing (v0.5)
+- [x] MCP server for Claude, Codex, Cursor and VS Code with OAuth and one-click installs (v0.5)
+- [ ] Claude directory listing (submission pack ready in [docs/claude-directory.md](docs/claude-directory.md); needs the public deploy)
 - [ ] iOS companion app: approvals on the go, voice check-ins, a Results widget (v0.6)
 - [ ] Post analytics from LinkedIn, and learning from results (waiting on LinkedIn's approval)
 - [ ] Images and documents in posts
