@@ -15,4 +15,6 @@ const eslintConfig = defineConfig([
   ]),
 ]);
 
+eslintConfig.push({ rules: { "react/no-unescaped-entities": "off" } }); // apostrophes in copy are intended
+
 export default eslintConfig;

@@ -1,36 +1,27 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Cadence
 
-## Getting Started
+LinkedIn posts in your own voice, from two minutes a week. Users tell Cadence who they are once, check in
+weekly, and approve drafts; Cadence publishes approved posts through LinkedIn's official API.
 
-First, run the development server:
+- $20/month after a 7-day free trial (Stripe).
+- Sign in with LinkedIn; the same consent lets Cadence publish posts the user approves.
+- Drafts are written by Claude (Sonnet 5 by default, Opus 5 optional) and only state facts the user supplied.
+
+See [ARCHITECTURE.md](ARCHITECTURE.md) for how it fits together.
+
+## Develop
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+docker run -d --name cadence-pg -e POSTGRES_PASSWORD=dev -e POSTGRES_DB=cadence -p 55432:5432 postgres:17
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Set the variables listed in `src/lib/env.ts` in your shell (never commit them), then:
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+```bash
+pnpm install && pnpm db:migrate && pnpm dev
+```
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+Tests need a migrated database in `TEST_DATABASE_URL`; the row-level-security suite skips without one.
 
-## Learn More
-
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Before pushing, `pnpm scrub` checks that nothing personal or secret is in the tree; set
+`CADENCE_PRIVATE_TERMS` to a file outside the repo to add your own terms.
