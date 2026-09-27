@@ -34,6 +34,7 @@ export function SiteFooter() {
         <span>© {new Date().getFullYear()} Cadence</span>
         <nav className="flex flex-wrap gap-4">
           <Link href="/how-it-works">How it works</Link><Link href="/demo">Demo</Link>
+          <a href="/docs/api">API</a>
           <a href="https://github.com/MAKaminski/cadence">GitHub</a>
           <a href="https://github.com/MAKaminski/cadence/discussions/categories/ideas">Request a feature</a>
           <Link href="/terms">Terms</Link><Link href="/privacy">Privacy</Link>

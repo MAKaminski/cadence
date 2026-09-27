@@ -30,6 +30,8 @@ jobs:
       - run: pnpm scrub
       - run: pnpm arch:check
       - run: pnpm catalog:check
+      - run: pnpm openapi:check
+      - run: pnpm --filter cadence-posts build
       - run: pnpm typecheck
       - run: pnpm lint
       - run: pnpm db:migrate

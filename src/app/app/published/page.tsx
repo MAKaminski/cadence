@@ -1,7 +1,8 @@
 import type { Metadata } from "next";
-import { desc, eq } from "drizzle-orm";
+import { eq } from "drizzle-orm";
+import { listPublications } from "@/services/publications";
 import { asUser } from "@/db";
-import { drafts, metrics, profiles, publications } from "@/db/schema";
+import { profiles } from "@/db/schema";
 import { requireSubscriber } from "@/lib/session";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
@@ -10,12 +11,8 @@ export const metadata: Metadata = { title: "Published" };
 
 export default async function Published() {
   const user = await requireSubscriber();
-  const { rows, latest, tz } = await asUser(user.id, async (tx) => ({
-    rows: await tx.select({ id: publications.id, status: publications.status, externalId: publications.externalPostId, at: publications.publishedAt, created: publications.createdAt, body: drafts.body })
-      .from(publications).innerJoin(drafts, eq(drafts.id, publications.draftId)).orderBy(desc(publications.createdAt)).limit(50),
-    latest: await tx.selectDistinctOn([metrics.publicationId]).from(metrics).orderBy(metrics.publicationId, desc(metrics.capturedAt)),
-    tz: ((await tx.select({ c: profiles.cadence }).from(profiles).where(eq(profiles.userId, user.id)))[0]?.c as { tz?: string })?.tz ?? "UTC",
-  }));
+  const rows = await listPublications(user.id);
+  const tz = await asUser(user.id, async (tx) => ((await tx.select({ c: profiles.cadence }).from(profiles).where(eq(profiles.userId, user.id)))[0]?.c as { tz?: string })?.tz ?? "UTC");
   const fmt = (d: Date) => new Intl.DateTimeFormat("en-US", { timeZone: tz, dateStyle: "medium", timeStyle: "short" }).format(d);
 
   return (
@@ -28,9 +25,9 @@ export default async function Published() {
       </div>
       {rows.length === 0 && <p className="rounded-lg border border-dashed p-6 text-center text-muted-foreground">Nothing published yet. Approved posts appear here after their slot.</p>}
       {rows.map((r) => {
-        const m = latest.find((x) => x.publicationId === r.id);
-        const isSample = Boolean((m?.platformData as { sample?: boolean } | undefined)?.sample);
-        const real = r.externalId && !r.externalId.includes("demo");
+        const m = r.latest;
+        const isSample = Boolean(m?.sample);
+        const real = Boolean(r.url);
         return (
           <Card key={r.id} data-testid="publication">
             <CardHeader className="flex flex-row flex-wrap items-center gap-2 space-y-0">
@@ -38,8 +35,8 @@ export default async function Published() {
               {r.status === "needs_review" && <Badge variant="destructive">Check LinkedIn</Badge>}
               {r.status === "failed" && <Badge variant="destructive">Not posted</Badge>}
               {r.status === "publishing" && <Badge variant="secondary">Posting…</Badge>}
-              <span className="text-sm text-muted-foreground">{fmt(r.at ?? r.created)}</span>
-              {real && <a className="ml-auto text-sm underline" href={`https://www.linkedin.com/feed/update/${r.externalId}/`} target="_blank" rel="noreferrer">View on LinkedIn</a>}
+              <span className="text-sm text-muted-foreground">{fmt(r.publishedAt ? new Date(r.publishedAt) : r.createdAt)}</span>
+              {real && <a className="ml-auto text-sm underline" href={r.url!} target="_blank" rel="noreferrer">View on LinkedIn</a>}
               {!real && r.externalId && <span className="ml-auto font-mono text-xs text-muted-foreground">{r.externalId}</span>}
             </CardHeader>
             <CardContent className="flex flex-col gap-4">

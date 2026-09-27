@@ -1,44 +1,14 @@
 "use server";
-import { z } from "zod";
-import { sql } from "drizzle-orm";
-import { asUser } from "@/db";
+import type { z } from "zod";
 import { profiles } from "@/db/schema";
 import { requireSubscriber } from "@/lib/session";
-
-const lines = (s: string) => s.split("\n").map((l) => l.trim()).filter(Boolean);
-
-const aboutSchema = z.object({
-  role: z.string().trim().min(2, "Say what you do, in a few words.").max(200),
-  audience: z.string().trim().min(2, "Who should these posts reach?").max(300),
-  goals: z.string().trim().min(2, "What do you want posting to do for you?").max(500),
-  facts: z.string().trim().min(10, "Add at least one fact. Cadence only states facts from this list.").max(5000),
-});
-
-const voiceSchema = z.object({
-  samples: z.array(z.string().trim()).length(3)
-    .refine((a) => a.filter((s) => s.length >= 80).length >= 2, "Paste at least two posts of a few sentences each."),
-  topics: z.string().trim().min(2, "Name a topic or two you want to be known for.").max(1000),
-  noGo: z.string().trim().max(1000),
-});
-
-const rhythmSchema = z.object({
-  perWeek: z.coerce.number().int().min(1).max(5),
-  days: z.array(z.enum(["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"])).min(1, "Pick at least one day."),
-  time: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/, "Use a time like 09:00."),
-  tz: z.string().min(1),
-  model: z.enum(["claude-sonnet-5", "claude-opus-5"]),
-});
+import { aboutSchema, lines, rhythmSchema, saveProfile, voiceSchema } from "@/services/profile";
 
 type Result = { ok: true } | { ok: false; error: string };
 
 async function save(step: number, values: Partial<typeof profiles.$inferInsert>): Promise<Result> {
   const user = await requireSubscriber();
-  await asUser(user.id, (tx) => tx.insert(profiles)
-    .values({ userId: user.id, ...values, onboardingStep: step + 1 })
-    .onConflictDoUpdate({
-      target: profiles.userId,
-      set: { ...values, onboardingStep: sql`greatest(${profiles.onboardingStep}, ${step + 1})`, updatedAt: new Date() },
-    }));
+  await saveProfile(user.id, values, step);
   return { ok: true };
 }
 

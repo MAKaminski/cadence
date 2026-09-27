@@ -11,6 +11,10 @@ export default function Terms() {
     <h2>Your account and content</h2><p>You are responsible for what is published from your account. Cadence publishes only drafts you approve, or drafts produced under automatic posting after you turn it on. You keep ownership of everything you provide and everything published.</p>
     <h2>Billing</h2><p>After a 7-day free trial the plan costs $20 per month, billed by Stripe. Cancel anytime from Settings; you keep access until the end of the paid period. Monthly writing usage is capped to keep the service fair.</p>
     <h2>Acceptable use</h2><p>Don't use Cadence to post content you don't have the right to share, to mislead, or in breach of LinkedIn's terms.</p>
+    <h2 id="api">API, CLI and connected assistants</h2>
+    <p>API keys and connected assistants (such as Claude or Codex) act as you, with only the scopes you grant. Keep keys secret; revoke them in Settings. Each key is limited to 60 requests a minute and check-ins to 20 a day; we may change limits with 30 days' notice in the changelog.</p>
+    <p>No key or assistant can publish immediately. A draft is only published after it is approved (by you, or by a tool you granted the separate approve scope) and only at your scheduled time. Drafts are written by AI and can be wrong; approving one is your review of it.</p>
+    <p>Cadence is not affiliated with, endorsed by or sponsored by LinkedIn, and the API cannot comment, message or send connection requests. We may suspend keys used to abuse the service or LinkedIn.</p>
     <h2>Changes and contact</h2><p>We will tell you by email before material changes take effect.</p>
   </main><SiteFooter /></>);
 }

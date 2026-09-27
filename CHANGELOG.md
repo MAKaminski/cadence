@@ -4,6 +4,15 @@ All notable changes to Cadence. The format follows [Keep a Changelog](https://ke
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-09-27
+
+### Added
+- Public REST API at `/api/v1`, described with OpenAPI 3.1 generated from the route definitions (`@hono/zod-openapi`); interactive reference at `/docs/api` (Scalar); spec committed at `docs/openapi.json` and checked in CI.
+- API keys in Settings with `read`, `write` and a separately granted `approve` scope; 60 requests/minute per key with `RateLimit-*` headers and `429` + `Retry-After`; 20 check-ins/day; `402` without an active plan; RFC 9457 errors.
+- `cadence-posts` CLI: login, status, checkin (args or stdin), drafts, show, why, edit, approve (confirms first), skip, stats.
+- API terms and disclaimers (terms page, docs, spec). No endpoint can publish immediately.
+- A shared service layer (`src/services`) used by the web app, the API and (next) the MCP server.
+
 ## [0.3.0] - 2026-09-27
 
 ### Added
@@ -40,7 +49,8 @@ All notable changes to Cadence. The format follows [Keep a Changelog](https://ke
 - Three-step guided setup, weekly check-in, settings.
 - Postgres schema with row-level security on every tenant table; generated ERD in ARCHITECTURE.md.
 
-[Unreleased]: https://github.com/MAKaminski/cadence/compare/v0.3.0...HEAD
+[Unreleased]: https://github.com/MAKaminski/cadence/compare/v0.4.0...HEAD
+[0.4.0]: https://github.com/MAKaminski/cadence/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/MAKaminski/cadence/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/MAKaminski/cadence/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/MAKaminski/cadence/releases/tag/v0.1.0

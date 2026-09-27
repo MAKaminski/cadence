@@ -29,6 +29,20 @@
       "when": 1790541668027,
       "tag": "0003_metrics_user_time",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1790542163174,
+      "tag": "0004_api_keys",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1790542632029,
+      "tag": "0005_apikey_user_fk",
+      "breakpoints": true
     }
   ]
 }
