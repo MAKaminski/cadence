@@ -12,7 +12,7 @@ export const platform = pgEnum("platform", ["linkedin"]);
 /** Where a push token lives. iOS today; Android would be a new value and a new sender. */
 export const devicePlatform = pgEnum("device_platform", ["ios"]);
 
-// Row-level security. The app's database login is a superuser on Railway, and superusers bypass RLS,
+// Row-level security. The app's database login is a superuser in production, and superusers bypass RLS,
 // so every user-scoped transaction switches to this unprivileged role (see src/db/index.ts).
 export const appRole = pgRole("cadence_app", { createRole: true, inherit: true });
 const mine = sql`user_id = current_setting('app.user_id', true) or current_setting('app.role', true) = 'worker'`;

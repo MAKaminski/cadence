@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { isDemo } from "./mode";
 
-// Every secret comes from the environment (Railway variables in production, the shell in development).
+// Every secret comes from the environment (deploy/.env on the server, the shell in development).
 // Nothing here has a default that would let the app run half-configured. Demo mode (see mode.ts) needs
 // only the database and the auth secret, because it replaces every outside service.
 const core = z.object({

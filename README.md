@@ -171,7 +171,7 @@ Model use is capped at $5 per user per month, so the worst case is $13.92 (69.6%
 | Front-end | Next.js 16 (App Router), Tailwind v4, shadcn/ui on Base UI |
 | Back-end | Postgres with row-level security on every tenant table, Drizzle ORM and migrations |
 | Middleware | Better Auth (LinkedIn OIDC, encrypted tokens) with its Stripe plugin (trial, portal, webhooks). Claude via `@anthropic-ai/sdk` (structured output, prompt caching). A Postgres job queue (`FOR UPDATE SKIP LOCKED`) |
-| Infrastructure | Railway: `web` and `worker` services (`railway/*.json`) plus Postgres. GitHub Actions CI with a Playwright smoke test of the demo |
+| Infrastructure | Docker Compose on one Oracle Cloud Always Free VM: `web`, `worker`, Postgres 17, Caddy for HTTPS, nightly backups (`deploy/`). GitHub Actions CI with a Playwright smoke test of the demo |
 
 See [ARCHITECTURE.md](ARCHITECTURE.md) for the generated ERD, which tables each feature owns, and the patterns every feature reuses.
 
@@ -179,8 +179,9 @@ See [ARCHITECTURE.md](ARCHITECTURE.md) for the generated ERD, which tables each 
 
 1. Create a LinkedIn app at <https://www.linkedin.com/developers/apps>. Add the products **Sign In with LinkedIn using OpenID Connect** and **Share on LinkedIn**, and the redirect URL `https://YOUR_DOMAIN/api/auth/callback/linkedin`.
 2. Create a Stripe product with a monthly price, plus a webhook to `https://YOUR_DOMAIN/api/auth/stripe/webhook`.
-3. Set the variables listed in [`src/lib/env.ts`](src/lib/env.ts) on both services, never in git. Treat `BETTER_AUTH_SECRET` as permanent: it encrypts stored LinkedIn tokens and the OAuth signing keys, so rotating it means everyone reconnects (and you must clear the `jwks` table).
-4. Deploy `web` (runs migrations before each deploy) and `worker` from this repo.
+3. On any Linux server with Docker (Cadence runs on an Oracle Cloud Always Free ARM VM): `deploy/setup-vm.sh` installs Docker, opens ports 80 and 443 and clones the repo. Point your domain's DNS at the server.
+4. Copy `deploy/env.example` to `deploy/.env` (mode 600) and fill it in; never commit it. Treat `BETTER_AUTH_SECRET` as permanent: it encrypts stored LinkedIn tokens and the OAuth signing keys, so rotating it means everyone reconnects (and you must clear the `jwks` table).
+5. `docker compose -f deploy/compose.yml --env-file deploy/.env up -d --build` runs migrations, then the web app, worker, Caddy (automatic HTTPS) and a nightly database backup. Later deploys: `CADENCE_HOST=ubuntu@IP deploy/deploy.sh`.
 
 ## Development
 

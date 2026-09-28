@@ -1,5 +1,5 @@
 // The worker: drafts after check-ins, publishes at the scheduled time, sends reminders.
-//   pnpm worker          run forever (Railway service "worker")
+//   pnpm worker          run forever (the "worker" service in deploy/compose.yml)
 //   pnpm worker --once   drain what's due, then exit (tests, demo recording)
 import { claim, finish, recoverLost, type Job } from "@/lib/jobs";
 import { draftFromCheckin, CapReached } from "@/lib/drafting";

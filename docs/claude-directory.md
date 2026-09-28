@@ -6,7 +6,7 @@ Everything needed to submit Cadence to Anthropic's connector directory. **Submis
 
 | Requirement | Status |
 |---|---|
-| Public HTTPS MCP endpoint | Waiting on the Railway deploy (`https://<domain>/api/mcp`) |
+| Public HTTPS MCP endpoint | Waiting on the public deploy (`https://<domain>/api/mcp`) |
 | OAuth 2.1 with PKCE, dynamic client registration, RFC 9728 protected resource metadata | Done (v0.5.0); tested in `e2e/mcp.spec.ts` |
 | Tool annotations (read-only / destructive hints) on every tool | Done |
 | Least privilege: separate optional scope for the one consequential action | Done (`cadence:approve`, unticked by default) |

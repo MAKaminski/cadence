@@ -1,0 +1,6 @@
+# Free HTTPS certificate for $DOMAIN. Caddy sets X-Forwarded-For from the real client address and ignores
+# any value the client sends, so Better Auth's per-IP rate limits can't be spoofed.
+{$DOMAIN} {
+	encode zstd gzip
+	reverse_proxy web:3000
+}

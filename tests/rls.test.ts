@@ -1,5 +1,5 @@
 // Tenant isolation, proven against a real Postgres (TEST_DATABASE_URL, migrated). The app logs in as a
-// superuser on Railway, and superusers bypass row-level security — so this checks the thing that
+// superuser in production (the postgres container's login), and superusers bypass row-level security — so this checks the thing that
 // actually protects users: the switch to the unprivileged role inside asUser().
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { eq, sql } from "drizzle-orm";
