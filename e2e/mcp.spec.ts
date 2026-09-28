@@ -45,7 +45,7 @@ test("an assistant connects with OAuth, checks in, reads drafts and approves onl
   let code = "";
   await page.route("http://localhost:8765/**", async (route) => { code = new URL(route.request().url()).searchParams.get("code") ?? ""; await route.fulfill({ body: "ok" }); });
   await page.goto(authz.toString());
-  await expect(page.getByText("Sign in to connect your AI assistant")).toBeVisible();
+  await expect(page.getByText("Sign in to connect E2E Assistant to Cadence")).toBeVisible();
   await page.getByRole("button", { name: "Continue as demo user" }).click();
   await expect(page.getByText("Connect E2E Assistant to Cadence?")).toBeVisible();
   await expect(page.getByText("Approve drafts to post")).toBeVisible();

@@ -4,6 +4,15 @@ All notable changes to Cadence. The format follows [Keep a Changelog](https://ke
 
 ## [Unreleased]
 
+### Added
+- **Cadence for iOS** (`ios/`): SwiftUI app for iOS 26+ with OAuth sign-in (dynamic registration, PKCE, refresh), This week, draft detail with the "why" sheet, edit, approve (confirms the exact text), skip, check-in with on-device voice (SpeechAnalyzer), Results in Swift Charts, Settings with account deletion, US web-checkout link-out and web setup in the same secure browser session, push registration and routing, and a "This week" widget.
+- CadenceKit Swift package: API client generated from `docs/openapi.json` by Apple's swift-openapi-generator; unit tests for PKCE (RFC 7636 vector), callback state, refresh single-flight, revocation and form encoding.
+- API operations have stable `operationId`s (`getMe`, `approveDraft`, …).
+- iOS CI workflow (path-filtered), App Store submission pack (`docs/ios-app-store.md`), privacy manifest.
+
+### Fixed
+- Sign-in names the app being connected instead of "your AI assistant".
+
 ## [0.6.0] - 2026-09-27
 
 Server support for the iOS app (the app itself follows).

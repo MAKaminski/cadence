@@ -36,7 +36,7 @@ function Field({ id, label, hint, children }: { id: string; label: string; hint?
 
 type Example = { role: string; audience: string; goals: string; facts: string; samples: [string, string, string]; topics: string; noGo: string };
 
-export function Stepper({ initial, example }: { initial: Initial; example?: Example }) {
+export function Stepper({ initial, example, returnToApp }: { initial: Initial; example?: Example; returnToApp?: boolean }) {
   const router = useRouter();
   const [step, setStep] = useState(Math.min(Math.max(initial.step, 1), 3));
   const [v, setV] = useState(initial);
@@ -49,6 +49,7 @@ export function Stepper({ initial, example }: { initial: Initial; example?: Exam
       : await saveRhythm({ perWeek: v.perWeek, days: v.days as never, time: v.time, tz: Intl.DateTimeFormat().resolvedOptions().timeZone, model: v.model });
     if (!res.ok) { toast.error(res.error); return; }
     if (step < 3) { setStep(step + 1); window.scrollTo({ top: 0 }); }
+    else if (returnToApp) { window.location.assign("app.cadence.ios://subscribed"); } // back to the iPhone app
     else { toast.success("You're set up. Your first check-in is next."); router.push("/app"); }
   });
 
