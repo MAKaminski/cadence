@@ -181,7 +181,7 @@ See [ARCHITECTURE.md](ARCHITECTURE.md) for the generated ERD, which tables each 
 2. Create a Stripe product with a monthly price, plus a webhook to `https://YOUR_DOMAIN/api/auth/stripe/webhook`.
 3. On any Linux server with Docker (Cadence runs on an Oracle Cloud Always Free ARM VM): `deploy/setup-vm.sh` installs Docker, opens ports 80 and 443 and clones the repo. Point your domain's DNS at the server.
 4. Copy `deploy/env.example` to `deploy/.env` (mode 600) and fill it in; never commit it. Treat `BETTER_AUTH_SECRET` as permanent: it encrypts stored LinkedIn tokens and the OAuth signing keys, so rotating it means everyone reconnects (and you must clear the `jwks` table).
-5. `docker compose -f deploy/compose.yml --env-file deploy/.env up -d --build` runs migrations, then the web app, worker, Caddy (automatic HTTPS) and a nightly database backup. Later deploys: `CADENCE_HOST=ubuntu@IP deploy/deploy.sh`.
+5. `docker compose -f deploy/compose.yml --env-file deploy/.env up -d --build` runs migrations, then the web app, worker, Caddy (automatic HTTPS) and a nightly database backup. Later deploys: `CADENCE_HOST=opc@IP deploy/deploy.sh`.
 
 ## Development
 
