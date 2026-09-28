@@ -1,0 +1,11 @@
+node_modules
+.next
+dist
+ios
+e2e
+test-results
+docs/demo
+.build-ios
+.git
+.env*
+*.pem

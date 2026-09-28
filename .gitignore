@@ -50,3 +50,7 @@ ios/Tools/.build
 ios/CadenceKit/.build
 ios/**/.swiftpm
 ios/Tools/Package.resolved
+
+# server deploy
+deploy/.env
+deploy/backups/
