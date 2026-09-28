@@ -130,10 +130,10 @@ api.use("/devices", authenticate); api.use("/devices/*", authenticate); api.use(
 
 const sec = [{ apiKey: [] }];
 
-api.openapi(createRoute({ method: "get", path: "/me", tags: ["Account"], summary: "Your account, plan and connection", security: sec, middleware: [need("read")] as const, responses: json(Me, "Your account") }),
+api.openapi(createRoute({ method: "get", path: "/me", operationId: "getMe", tags: ["Account"], summary: "Your account, plan and connection", security: sec, middleware: [need("read")] as const, responses: json(Me, "Your account") }),
   async (c) => c.json({ ...(await me(c.get("userId"))), scopes: c.get("scopes") }, 200));
 
-api.openapi(createRoute({ method: "get", path: "/profile", tags: ["Setup"], summary: "Your one-time setup", security: sec, middleware: [need("read")] as const, responses: json(Profile, "Your setup") }),
+api.openapi(createRoute({ method: "get", path: "/profile", operationId: "getProfile", tags: ["Setup"], summary: "Your one-time setup", security: sec, middleware: [need("read")] as const, responses: json(Profile, "Your setup") }),
   async (c) => {
     const p = await getProfile(c.get("userId"));
     if (!p) throw new ServiceError("not_found", "Finish setup in the app first.");
@@ -141,7 +141,7 @@ api.openapi(createRoute({ method: "get", path: "/profile", tags: ["Setup"], summ
   });
 
 api.openapi(createRoute({
-  method: "patch", path: "/profile", tags: ["Setup"], summary: "Change part of your setup",
+  method: "patch", path: "/profile", operationId: "updateProfile", tags: ["Setup"], summary: "Change part of your setup",
   description: "Any subset of fields. `facts` is the only source of claims Cadence may make about you.",
   security: sec, middleware: [need("write")] as const,
   request: { body: { content: { "application/json": { schema: profilePatch } }, required: true } },
@@ -149,7 +149,7 @@ api.openapi(createRoute({
 }), async (c) => c.json((await patchProfile(c.get("userId"), c.req.valid("json")))!, 200));
 
 api.openapi(createRoute({
-  method: "post", path: "/checkins", tags: ["Weekly"], summary: "Save a check-in (starts drafting)",
+  method: "post", path: "/checkins", operationId: "createCheckin", tags: ["Weekly"], summary: "Save a check-in (starts drafting)",
   description: `Rough notes about your week. Drafting starts right away; poll \`GET /drafts?status=draft,held\`. Limited to ${drafts.CHECKINS_PER_DAY} a day, and model use is capped at the monthly allowance.`,
   security: sec, middleware: [need("write")] as const,
   request: { body: { content: { "application/json": { schema: z.object({ body: z.string().min(20).max(4000) }).openapi("CheckinInput") } }, required: true } },
@@ -157,7 +157,7 @@ api.openapi(createRoute({
 }), async (c) => c.json(await drafts.saveCheckin(c.get("userId"), c.req.valid("json").body), 202));
 
 api.openapi(createRoute({
-  method: "get", path: "/drafts", tags: ["Weekly"], summary: "List drafts", security: sec, middleware: [need("read")] as const,
+  method: "get", path: "/drafts", operationId: "listDrafts", tags: ["Weekly"], summary: "List drafts", security: sec, middleware: [need("read")] as const,
   request: { query: z.object({
     status: z.string().optional().openapi({ description: `Comma-separated: ${drafts.DRAFT_STATUSES.join(", ")}`, example: "draft,held" }),
     limit: z.coerce.number().int().min(1).max(100).default(50),
@@ -170,11 +170,11 @@ api.openapi(createRoute({
   return c.json({ drafts: await drafts.listDrafts(userId, status, q.limit), drafting: await drafts.isDrafting(userId) }, 200);
 });
 
-api.openapi(createRoute({ method: "get", path: "/drafts/{id}", tags: ["Weekly"], summary: "One draft, with why it reads the way it does", security: sec, middleware: [need("read")] as const, request: { params: IdParam }, responses: json(Draft, "The draft") }),
+api.openapi(createRoute({ method: "get", path: "/drafts/{id}", operationId: "getDraft", tags: ["Weekly"], summary: "One draft, with why it reads the way it does", security: sec, middleware: [need("read")] as const, request: { params: IdParam }, responses: json(Draft, "The draft") }),
   async (c) => c.json(await drafts.getDraft(c.get("userId"), c.req.valid("param").id), 200));
 
 api.openapi(createRoute({
-  method: "patch", path: "/drafts/{id}", tags: ["Weekly"], summary: "Edit a draft",
+  method: "patch", path: "/drafts/{id}", operationId: "editDraft", tags: ["Weekly"], summary: "Edit a draft",
   description: "Your text is re-checked but never rewritten. An edited draft must be approved again.",
   security: sec, middleware: [need("write")] as const,
   request: { params: IdParam, body: { content: { "application/json": { schema: z.object({ body: z.string().min(10).max(3000) }).openapi("EditInput") } }, required: true } },
@@ -182,24 +182,24 @@ api.openapi(createRoute({
 }), async (c) => c.json(await drafts.editDraft(c.get("userId"), c.req.valid("param").id, c.req.valid("json").body), 200));
 
 api.openapi(createRoute({
-  method: "post", path: "/drafts/{id}/approve", tags: ["Weekly"], summary: "Approve a draft (needs the approve scope)",
+  method: "post", path: "/drafts/{id}/approve", operationId: "approveDraft", tags: ["Weekly"], summary: "Approve a draft (needs the approve scope)",
   description: "Locks the exact text and schedules it into your next posting slot. Only the approved text can be published, once. Requires a key with the `approve` scope, granted by you in Settings.",
   security: sec, middleware: [need("approve")] as const, request: { params: IdParam }, responses: json(Draft, "Scheduled draft"),
 }), async (c) => c.json(await drafts.approveDraft(c.get("userId"), c.req.valid("param").id), 200));
 
-api.openapi(createRoute({ method: "post", path: "/drafts/{id}/skip", tags: ["Weekly"], summary: "Skip a draft", security: sec, middleware: [need("write")] as const, request: { params: IdParam }, responses: json(Draft, "Skipped draft") }),
+api.openapi(createRoute({ method: "post", path: "/drafts/{id}/skip", operationId: "skipDraft", tags: ["Weekly"], summary: "Skip a draft", security: sec, middleware: [need("write")] as const, request: { params: IdParam }, responses: json(Draft, "Skipped draft") }),
   async (c) => c.json(await drafts.skipDraft(c.get("userId"), c.req.valid("param").id), 200));
 
-api.openapi(createRoute({ method: "get", path: "/publications", tags: ["Results"], summary: "What has been posted, with latest numbers", security: sec, middleware: [need("read")] as const, responses: json(z.object({ publications: z.array(Publication) }), "Publications, newest first") }),
+api.openapi(createRoute({ method: "get", path: "/publications", operationId: "listPublications", tags: ["Results"], summary: "What has been posted, with latest numbers", security: sec, middleware: [need("read")] as const, responses: json(z.object({ publications: z.array(Publication) }), "Publications, newest first") }),
   async (c) => c.json({ publications: await listPublications(c.get("userId")) }, 200));
 
 api.openapi(createRoute({
-  method: "get", path: "/stats/outreach", tags: ["Results"], summary: "Posts per week vs your target", security: sec, middleware: [need("read")] as const,
+  method: "get", path: "/stats/outreach", operationId: "getOutreach", tags: ["Results"], summary: "Posts per week vs your target", security: sec, middleware: [need("read")] as const,
   request: { query: z.object({ weeks: z.coerce.number().int().min(1).max(52).default(12) }) }, responses: json(Outreach, "One row per week, oldest first"),
 }), async (c) => c.json(await stats.outreach(c.get("userId"), c.req.valid("query").weeks), 200));
 
 api.openapi(createRoute({
-  method: "get", path: "/stats/impact", tags: ["Results"], summary: "Reach and engagement per post, and what works",
+  method: "get", path: "/stats/impact", operationId: "getImpact", tags: ["Results"], summary: "Reach and engagement per post, and what works",
   description: "Empty until LinkedIn grants analytics access (demo mode returns labelled sample numbers).",
   security: sec, middleware: [need("read")] as const, responses: json(Impact, "Per-post impact and grouped engagement"),
 }), async (c) => {
@@ -210,7 +210,7 @@ api.openapi(createRoute({
 const Device = z.object({ id: z.string().uuid(), platform: z.enum(["ios"]), environment: z.enum(["sandbox", "production"]), lastSeenAt: z.string() }).openapi("Device");
 
 api.openapi(createRoute({
-  method: "post", path: "/devices", tags: ["Account"], summary: "Register a device for push notifications",
+  method: "post", path: "/devices", operationId: "registerDevice", tags: ["Account"], summary: "Register a device for push notifications",
   description: "Called by the iOS app with its APNs token. Works without an active plan. A token moves to whichever account registers it last.",
   security: sec, middleware: [need("write")] as const,
   request: { body: { content: { "application/json": { schema: z.object({ token: z.string().regex(/^[0-9a-fA-F]{32,200}$/), environment: z.enum(["sandbox", "production"]) }).openapi("DeviceInput") } }, required: true } },
@@ -218,13 +218,13 @@ api.openapi(createRoute({
 }), async (c) => { const b = c.req.valid("json"); return c.json(await registerDevice(c.get("userId"), b.token, b.environment), 201); });
 
 api.openapi(createRoute({
-  method: "delete", path: "/devices/{id}", tags: ["Account"], summary: "Stop push notifications to a device",
+  method: "delete", path: "/devices/{id}", operationId: "unregisterDevice", tags: ["Account"], summary: "Stop push notifications to a device",
   security: sec, middleware: [need("write")] as const, request: { params: IdParam },
   responses: { 204: { description: "Removed" }, ...errors },
 }), async (c) => { await unregisterDevice(c.get("userId"), c.req.valid("param").id); return c.body(null, 204); });
 
 api.openapi(createRoute({
-  method: "delete", path: "/account", tags: ["Account"], summary: "Delete your account and everything in it",
+  method: "delete", path: "/account", operationId: "deleteAccount", tags: ["Account"], summary: "Delete your account and everything in it",
   description: "Cancels an active web subscription immediately, then deletes your setup, drafts, posts' records, results, devices, API keys, connected apps and the stored LinkedIn connection. Posts already on LinkedIn stay there. Requires `confirm: \"delete my account\"`.",
   security: sec, middleware: [need("write")] as const,
   request: { body: { content: { "application/json": { schema: z.object({ confirm: z.literal("delete my account") }).openapi("DeleteAccountInput") } }, required: true } },
@@ -232,7 +232,7 @@ api.openapi(createRoute({
 }), async (c) => { const r = await deleteAccount(c.get("userId")); return c.json({ deleted: true as const, cancelledSubscriptions: r.cancelledStripe }, 200); });
 
 api.openapi(createRoute({
-  method: "get", path: "/billing/checkout-link", tags: ["Account"], summary: "Where to subscribe on the web",
+  method: "get", path: "/billing/checkout-link", operationId: "getCheckoutLink", tags: ["Account"], summary: "Where to subscribe on the web",
   description: "For apps that link out to web checkout (the iOS app in the US storefront). Returns a link to Cadence's sign-in, which continues to checkout. Refuses with 409 when a plan is already active, so nobody pays twice.",
   security: sec, middleware: [need("read")] as const,
   request: { query: z.object({ from: z.enum(["ios"]).optional() }) },

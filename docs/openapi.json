@@ -694,6 +694,7 @@
   "paths": {
     "/api/v1/me": {
       "get": {
+        "operationId": "getMe",
         "tags": [
           "Account"
         ],
@@ -759,6 +760,7 @@
     },
     "/api/v1/profile": {
       "get": {
+        "operationId": "getProfile",
         "tags": [
           "Setup"
         ],
@@ -822,6 +824,7 @@
         }
       },
       "patch": {
+        "operationId": "updateProfile",
         "tags": [
           "Setup"
         ],
@@ -991,6 +994,7 @@
     },
     "/api/v1/checkins": {
       "post": {
+        "operationId": "createCheckin",
         "tags": [
           "Weekly"
         ],
@@ -1076,6 +1080,7 @@
     },
     "/api/v1/drafts": {
       "get": {
+        "operationId": "listDrafts",
         "tags": [
           "Weekly"
         ],
@@ -1180,6 +1185,7 @@
     },
     "/api/v1/drafts/{id}": {
       "get": {
+        "operationId": "getDraft",
         "tags": [
           "Weekly"
         ],
@@ -1254,6 +1260,7 @@
         }
       },
       "patch": {
+        "operationId": "editDraft",
         "tags": [
           "Weekly"
         ],
@@ -1341,6 +1348,7 @@
     },
     "/api/v1/drafts/{id}/approve": {
       "post": {
+        "operationId": "approveDraft",
         "tags": [
           "Weekly"
         ],
@@ -1418,6 +1426,7 @@
     },
     "/api/v1/drafts/{id}/skip": {
       "post": {
+        "operationId": "skipDraft",
         "tags": [
           "Weekly"
         ],
@@ -1494,6 +1503,7 @@
     },
     "/api/v1/publications": {
       "get": {
+        "operationId": "listPublications",
         "tags": [
           "Results"
         ],
@@ -1570,6 +1580,7 @@
     },
     "/api/v1/stats/outreach": {
       "get": {
+        "operationId": "getOutreach",
         "tags": [
           "Results"
         ],
@@ -1648,6 +1659,7 @@
     },
     "/api/v1/stats/impact": {
       "get": {
+        "operationId": "getImpact",
         "tags": [
           "Results"
         ],
@@ -1714,6 +1726,7 @@
     },
     "/api/v1/devices": {
       "post": {
+        "operationId": "registerDevice",
         "tags": [
           "Account"
         ],
@@ -1790,6 +1803,7 @@
     },
     "/api/v1/devices/{id}": {
       "delete": {
+        "operationId": "unregisterDevice",
         "tags": [
           "Account"
         ],
@@ -1859,6 +1873,7 @@
     },
     "/api/v1/account": {
       "delete": {
+        "operationId": "deleteAccount",
         "tags": [
           "Account"
         ],
@@ -1950,6 +1965,7 @@
     },
     "/api/v1/billing/checkout-link": {
       "get": {
+        "operationId": "getCheckoutLink",
         "tags": [
           "Account"
         ],

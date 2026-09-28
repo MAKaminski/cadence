@@ -44,3 +44,9 @@ next-env.d.ts
 /playwright-report
 /.claude/index
 /cli/dist
+/.build-ios
+ios/Cadence.xcodeproj
+ios/Tools/.build
+ios/CadenceKit/.build
+ios/**/.swiftpm
+ios/Tools/Package.resolved

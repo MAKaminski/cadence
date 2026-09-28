@@ -1,0 +1,29 @@
+name: ios
+# The iOS app. Runs only when the app or the API spec changes (macOS minutes cost about 10x Linux).
+on:
+  push:
+    branches: [main]
+    paths: ["ios/**", "docs/openapi.json", ".github/workflows/ios.yml"]
+  pull_request:
+    paths: ["ios/**", "docs/openapi.json", ".github/workflows/ios.yml"]
+jobs:
+  build:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Xcode version
+        run: xcodebuild -version
+      - name: The committed Swift client matches docs/openapi.json
+        run: |
+          cd ios/Tools && swift run swift-openapi-generator generate ../../docs/openapi.json \
+            --config ../CadenceKit/Sources/CadenceAPI/openapi-generator-config.yaml \
+            --output-directory ../CadenceKit/Sources/CadenceAPI/Generated
+          git diff --exit-code -- ../CadenceKit/Sources/CadenceAPI/Generated || { echo "Run pnpm ios:api and commit."; exit 1; }
+      - name: CadenceKit unit tests
+        run: cd ios/CadenceKit && swift test
+      - name: Build the app for the simulator
+        run: |
+          brew install xcodegen
+          cd ios && xcodegen generate
+          xcodebuild -project Cadence.xcodeproj -scheme Cadence -destination "generic/platform=iOS Simulator" \
+            -derivedDataPath build CODE_SIGNING_ALLOWED=NO build

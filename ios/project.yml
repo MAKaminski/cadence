@@ -1,0 +1,89 @@
+# Cadence for iOS. Generate the Xcode project with `pnpm ios:gen` (XcodeGen); the .xcodeproj is not
+# committed. Debug builds talk to the local demo server; Release builds to CADENCE_SERVER_URL.
+name: Cadence
+options:
+  bundleIdPrefix: app.cadence
+  deploymentTarget: { iOS: "26.0" }
+  createIntermediateGroups: true
+settings:
+  base:
+    SWIFT_VERSION: "6.0"
+    SWIFT_STRICT_CONCURRENCY: complete
+    MARKETING_VERSION: "0.6.0"
+    CURRENT_PROJECT_VERSION: "1"
+    DEVELOPMENT_TEAM: ""   # set your team for device builds; simulator builds need none
+    CODE_SIGN_STYLE: Automatic
+packages:
+  CadenceKit: { path: CadenceKit }
+targets:
+  Cadence:
+    type: application
+    platform: iOS
+    sources: [App]
+    dependencies:
+      - package: CadenceKit
+        products: [CadenceCore, CadenceAPI]
+      - target: CadenceWidgets
+    info:
+      path: App/Info.plist
+      properties:
+        CFBundleDisplayName: Cadence
+        CadenceServerURL: $(CADENCE_SERVER_URL)
+        UILaunchScreen: { UIColorName: AccentColor }
+        UISupportedInterfaceOrientations: [UIInterfaceOrientationPortrait]
+        CFBundleURLTypes: [{ CFBundleURLName: app.cadence.ios, CFBundleURLSchemes: [app.cadence.ios] }]
+        NSMicrophoneUsageDescription: Cadence listens only while you hold the talk button, to turn your spoken check-in into text on this iPhone.
+        NSSpeechRecognitionUsageDescription: Your spoken check-in is transcribed on this iPhone. The audio never leaves the device.
+        NSAppTransportSecurity: { NSAllowsLocalNetworking: true }
+        UIBackgroundModes: [remote-notification]
+        ITSAppUsesNonExemptEncryption: false
+    entitlements:
+      path: App/Cadence.entitlements
+      properties:
+        aps-environment: development
+        com.apple.security.application-groups: [group.app.cadence.ios]
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: app.cadence.ios
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor
+      configs:
+        Debug: { CADENCE_SERVER_URL: "" }
+        Release: { CADENCE_SERVER_URL: "https://cadence.example.com" }
+  CadenceWidgets:
+    type: app-extension
+    platform: iOS
+    sources: [Widgets]
+    dependencies:
+      - package: CadenceKit
+        products: [CadenceCore]
+    info:
+      path: Widgets/Info.plist
+      properties:
+        CFBundleDisplayName: Cadence
+        NSExtension: { NSExtensionPointIdentifier: com.apple.widgetkit-extension }
+    entitlements:
+      path: Widgets/CadenceWidgets.entitlements
+      properties:
+        com.apple.security.application-groups: [group.app.cadence.ios]
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: app.cadence.ios.widgets
+  CadenceUITests:
+    type: bundle.ui-testing
+    platform: iOS
+    sources: [UITests]
+    dependencies: [{ target: Cadence }]
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: app.cadence.ios.uitests
+        GENERATE_INFOPLIST_FILE: YES
+        TEST_TARGET_NAME: Cadence
+schemes:
+  Cadence:
+    build: { targets: { Cadence: all } }
+    run: { config: Debug }
+    test:
+      config: Debug
+      targets: [CadenceUITests]
+    archive: { config: Release }

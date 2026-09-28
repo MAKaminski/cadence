@@ -8,6 +8,9 @@ import { LinkedInButton } from "./linkedin-button";
 import { DemoButton } from "./demo-button";
 import { isDemo } from "@/lib/mode";
 import { OAuthContinue } from "./oauth-continue";
+import { eq } from "drizzle-orm";
+import { db } from "@/db";
+import { oauthClient } from "@/db/schema";
 
 export const metadata: Metadata = { title: "Sign in" };
 
@@ -18,6 +21,8 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
   const next = typeof q.next === "string" && /^\/[a-z]/.test(q.next) ? q.next : null;
   const session = await auth.api.getSession({ headers: await headers() });
   if (session && !connecting) redirect(next ?? "/app");
+  const clientId = typeof q.client_id === "string" ? q.client_id : "";
+  const [client] = connecting && clientId ? await db.select({ name: oauthClient.name }).from(oauthClient).where(eq(oauthClient.clientId, clientId)) : [];
   return (
     <>
       <SiteHeader />
@@ -31,7 +36,7 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
             </CardDescription>
           </CardHeader>
           <CardContent className="flex flex-col gap-4">
-            {connecting && !session && <p className="rounded-lg bg-muted p-3 text-sm">Sign in to connect your AI assistant to Cadence. You'll choose what it can do next.</p>}
+            {connecting && !session && <p className="rounded-lg bg-muted p-3 text-sm">Sign in to connect {client?.name ?? "an app"} to Cadence. You'll choose what it can do next.</p>}
             {session && connecting ? <OAuthContinue /> : <>
             {isDemo() ? <>
               <DemoButton next={next ?? undefined} />

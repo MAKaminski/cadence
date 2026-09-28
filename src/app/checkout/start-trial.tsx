@@ -7,7 +7,7 @@ import { authClient } from "@/lib/auth-client";
 import { startDemoTrial } from "@/lib/demo";
 
 export function StartTrial({ plan, demo, fromIos }: { plan: string; demo?: boolean; fromIos?: boolean }) {
-  const done = fromIos ? "/checkout/done?from=ios" : "/onboarding";
+  const done = fromIos ? "/onboarding?from=ios" : "/onboarding";
   const [busy, setBusy] = useState(false);
   const router = useRouter();
   if (demo) return (

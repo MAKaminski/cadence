@@ -127,6 +127,10 @@ claude mcp add --transport http cadence https://YOUR-CADENCE-HOST/api/mcp   # Cl
 
 Claude web and desktop: Settings → Connectors → Add custom connector. Cursor and VS Code have one-click buttons on `/integrations`. You choose on the consent screen whether the assistant may approve drafts; it can never post immediately, and **Disconnect** in Settings takes effect at once. Details: [docs/MCP.md](docs/MCP.md).
 
+## iPhone app
+
+A native SwiftUI companion (iOS 26+) in [`ios/`](ios): voice or text check-ins (transcribed on the phone), drafts with the full "why", two-tap approve/edit/skip, Results in Swift Charts, a home-screen widget, and push when drafts are ready. Its Swift client is generated from the same OpenAPI spec as the CLI. Build it with `pnpm ios:gen && pnpm ios:build` against `pnpm demo`. See [docs/ios.md](docs/ios.md).
+
 ## API and CLI
 
 Everything in the app is also available through a documented REST API (**OpenAPI 3.1**, generated from the code with `@hono/zod-openapi`; interactive reference at `/docs/api` on any Cadence server) and a CLI:
@@ -203,7 +207,8 @@ pnpm arch && pnpm catalog   # regenerate ARCHITECTURE.md's ERD and this README's
 - [x] Public API with OpenAPI reference, API keys with scopes and rate limits, CLI (v0.4)
 - [x] MCP server for Claude, Codex, Cursor and VS Code with OAuth and one-click installs (v0.5)
 - [ ] Claude directory listing (submission pack ready in [docs/claude-directory.md](docs/claude-directory.md); needs the public deploy)
-- [ ] iOS companion app: approvals on the go, voice check-ins, a Results widget (v0.6)
+- [x] Server support for iOS: OAuth for the API, push, account deletion, App Review access (v0.6)
+- [ ] iOS companion app on the App Store (built and running on the simulator; TestFlight next)
 - [ ] Post analytics from LinkedIn, and learning from results (waiting on LinkedIn's approval)
 - [ ] Images and documents in posts
 - [ ] More platforms. The data model already tags every row with its platform, so [tell us which](https://github.com/MAKaminski/cadence/discussions/categories/ideas)
