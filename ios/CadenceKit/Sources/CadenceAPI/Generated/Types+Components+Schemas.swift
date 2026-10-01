@@ -309,6 +309,8 @@ extension Components {
         public struct Draft: Codable, Hashable, Sendable {
             /// - Remark: Generated from `#/components/schemas/Draft/id`.
             public var id: Swift.String
+            /// - Remark: Generated from `#/components/schemas/Draft/platform`.
+            public var platform: Components.Schemas.Platform
             /// - Remark: Generated from `#/components/schemas/Draft/status`.
             @frozen public enum StatusPayload: String, Codable, Hashable, Sendable, CaseIterable {
                 case draft = "draft"
@@ -334,6 +336,7 @@ extension Components {
             ///
             /// - Parameters:
             ///   - id:
+            ///   - platform:
             ///   - status:
             ///   - version:
             ///   - body:
@@ -342,6 +345,7 @@ extension Components {
             ///   - why:
             public init(
                 id: Swift.String,
+                platform: Components.Schemas.Platform,
                 status: Components.Schemas.Draft.StatusPayload,
                 version: Swift.Int,
                 body: Swift.String,
@@ -350,6 +354,7 @@ extension Components {
                 why: Components.Schemas.Why
             ) {
                 self.id = id
+                self.platform = platform
                 self.status = status
                 self.version = version
                 self.body = body
@@ -359,6 +364,7 @@ extension Components {
             }
             public enum CodingKeys: String, CodingKey {
                 case id
+                case platform
                 case status
                 case version
                 case body
@@ -366,6 +372,23 @@ extension Components {
                 case createdAt
                 case why
             }
+        }
+        /// The channel a draft or post belongs to. Planned channels are listed so clients needn't change when they go live.
+        ///
+        /// - Remark: Generated from `#/components/schemas/Platform`.
+        @frozen public enum Platform: String, Codable, Hashable, Sendable, CaseIterable {
+            case linkedin = "linkedin"
+            case x = "x"
+            case threads = "threads"
+            case bluesky = "bluesky"
+            case mastodon = "mastodon"
+            case facebook = "facebook"
+            case instagram = "instagram"
+            case pinterest = "pinterest"
+            case tiktok = "tiktok"
+            case youtube = "youtube"
+            case reddit = "reddit"
+            case googleBusiness = "google_business"
         }
         /// Why the draft reads the way it does: the angle, every check and what changed.
         ///
@@ -502,6 +525,8 @@ extension Components {
         public struct Publication: Codable, Hashable, Sendable {
             /// - Remark: Generated from `#/components/schemas/Publication/id`.
             public var id: Swift.String
+            /// - Remark: Generated from `#/components/schemas/Publication/platform`.
+            public var platform: Components.Schemas.Platform
             /// - Remark: Generated from `#/components/schemas/Publication/draftId`.
             public var draftId: Swift.String
             /// - Remark: Generated from `#/components/schemas/Publication/status`.
@@ -566,6 +591,7 @@ extension Components {
             ///
             /// - Parameters:
             ///   - id:
+            ///   - platform:
             ///   - draftId:
             ///   - status:
             ///   - url:
@@ -574,6 +600,7 @@ extension Components {
             ///   - latest:
             public init(
                 id: Swift.String,
+                platform: Components.Schemas.Platform,
                 draftId: Swift.String,
                 status: Components.Schemas.Publication.StatusPayload,
                 url: Swift.String? = nil,
@@ -582,6 +609,7 @@ extension Components {
                 latest: Components.Schemas.Publication.LatestPayload? = nil
             ) {
                 self.id = id
+                self.platform = platform
                 self.draftId = draftId
                 self.status = status
                 self.url = url
@@ -591,6 +619,7 @@ extension Components {
             }
             public enum CodingKeys: String, CodingKey {
                 case id
+                case platform
                 case draftId
                 case status
                 case url
