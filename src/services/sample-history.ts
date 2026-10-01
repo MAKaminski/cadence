@@ -82,7 +82,7 @@ export async function addSampleHistory(userId: string, scenario: Scenario = "ste
     for (let i = 0; i < 3; i++) await post(tx, userId, at(1, 3), { opener: OPENERS[3 + i], angle: ANGLES[0], rate: null, version: 2, draftedAt: today });
     for (let i = 0; i < 2; i++) await tx.insert(drafts).values({
       userId, platform: "linkedin", status: "held", createdAt: today, body: bodyOf("We cut month-end close from 12 days to 3.", 4),
-      gate: gate(ANGLES[0], "Sample history (demo): held for a claim not in your facts.", "held", [{ id: "facts", label: "Facts", outcome: "held", detail: "“12 days to 3” isn't in your facts list." }]),
+      gate: gate(ANGLES[0], "Sample history (demo): held for a claim not in your facts.", "held", [{ id: "facts", label: "Facts", outcome: "held", detail: "“12 days to 3” isn't in your facts list" }]),
     });
     await tx.update(profiles).set({ model: "claude-opus-5" }).where(eq(profiles.userId, userId));
     await tx.insert(llmUsage).values({ userId, model: "claude-opus-5", tokensIn: 200_000, tokensOut: 40_000, costUsd: (LIMITS.monthlyCapUsd * 0.86).toFixed(2), createdAt: today });
