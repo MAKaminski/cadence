@@ -94,7 +94,7 @@ export const ROUTINES: (Item & { when: string })[] = [
   { name: "Pause", when: "While posting is paused on Plan", what: "Approved posts keep their place and wait; nothing is published until you resume." },
   { name: "Channel versions", when: "Every draft, for each channel you connect", what: "Rewrites the post for the channel (for X: one post within 280 characters as X counts them), runs the same checks against that channel's limits, and keeps it as its own draft for you to approve." },
   { name: "Publishing", when: "At the scheduled time", what: "Posts the exact approved text through each channel's official API (LinkedIn, X), once. A post that might have gone out is marked for review, never retried." },
-  { name: "Results check", when: "24 and 72 hours after each post", what: "Records impressions, reactions, comments and reshares for the Results charts. Starts once LinkedIn approves analytics access; until then the charts say so." },
+  { name: "Results check", when: "1, 3 and 7 days after each post", what: "Records impressions, members reached, reactions, comments, reposts, saves, sends, link clicks, followers gained and profile views for Published and the Results charts. LinkedIn numbers are read automatically once the server's LinkedIn app is approved for post analytics (LINKEDIN_ANALYTICS=1); until then you add them on Published from each post's analytics." },
   { name: "Check-in reminder", when: "The day before your first posting day", what: "An email if you haven't checked in that week." },
   { name: "Connection reminder", when: "7 days and 1 day before LinkedIn access expires", what: "LinkedIn access lasts about 60 days. Signing in again renews it." },
 ];

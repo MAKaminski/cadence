@@ -15,6 +15,7 @@ import { specByProvider } from "@/platforms/registry";
 import { sendEmail } from "@/lib/email";
 import { MAGIC_LINK_MINUTES, confirmUrl, magicLinkEmail, magicLinkSink, safeNext } from "@/lib/magic-link";
 import { emailConfigured } from "@/lib/setup-check";
+import { ANALYTICS_SCOPE, linkedinAnalytics } from "@/platforms/linkedin-analytics";
 
 export const PLAN = "cadence";
 export const TRIAL_DAYS = 7;
@@ -61,7 +62,9 @@ export const auth = betterAuth({
       // Sign-in and posting in ONE consent. Self-serve LinkedIn apps get no refresh token, so the
       // ~60-day access token is renewed by signing in again; asking for both here means every
       // sign-in renews the posting permission too.
-      scope: ["w_member_social"],
+      // Post numbers (impressions, reach, reactions…) need r_member_postAnalytics, which LinkedIn grants
+      // only to apps it has approved; asking for it otherwise breaks sign-in, so it waits for LINKEDIN_ANALYTICS=1.
+      scope: ["w_member_social", ...(linkedinAnalytics() ? [ANALYTICS_SCOPE] : [])],
     },
     // X is a channel to post to, never a way to sign up: people connect it from Channels while signed
     // in (linkSocial). Cadence's own X app (X_CLIENT_ID/SECRET) does the posting for everyone, so
