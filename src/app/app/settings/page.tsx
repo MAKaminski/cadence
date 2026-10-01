@@ -45,6 +45,10 @@ export default async function Settings() {
         <CardHeader><CardTitle>Your setup</CardTitle><CardDescription>Who you are, your facts, your voice, your posting rhythm and writing model ({s.p?.model === "claude-opus-5" ? "Claude Opus 5" : "Claude Sonnet 5"}).</CardDescription></CardHeader>
         <CardContent><Button variant="outline" render={<Link href="/onboarding?edit=1" />}>Edit setup</Button></CardContent>
       </Card>
+      <Card id="import">
+        <CardHeader><CardTitle>Your AI history</CardTitle><CardDescription>Import a ChatGPT or Claude export and review what it suggests for your setup.</CardDescription></CardHeader>
+        <CardContent><Button variant="outline" render={<Link href="/app/import" />}>Import your AI history</Button></CardContent>
+      </Card>
       <Card>
         <CardHeader><CardTitle>Posting</CardTitle><CardDescription>Model use this month: ${s.spent.toFixed(2)} of ${LIMITS.monthlyCapUsd} included.</CardDescription></CardHeader>
         <CardContent><AutoPublish on={s.p?.auto ?? false} unlocked={remaining === 0} remaining={remaining} /></CardContent>

@@ -22,7 +22,8 @@ subscription-billed, self-hosted with Docker Compose on one Oracle Cloud Always 
 - **Weekly check-in**: `inputs`. Saving one enqueues a `draft` job in the same transaction.
 - **Drafting**: `drafts` (body, version, `gate` = the "Why this draft" record) and `llm_usage` (every model call, and the $5 monthly cap).
 - **Publishing**: `publications` (one per draft, unique; the only publish state machine) and `drafts.approved_body_hash`.
-- **Background work**: `jobs` (draft, publish, reminders; `locked_at` lease).
+- **Background work**: `jobs` (draft, publish, reminders, imports; `locked_at` lease, renewed by long imports).
+- **AI history import**: `history_imports` (one upload: status, progress, what was found, cost), `history_chunks` (the uploaded file in 4 MB pieces, deleted once read), `history_messages` (the person's own messages, unique per person by hash), `history_suggestions` (pending / accepted / dismissed). `src/lib/zip.ts` and `src/lib/json-stream.ts` read the file as a stream; `src/lib/history.ts` parses both formats; `src/lib/history-distill.ts` is Claude or demo behind one interface; `src/services/history.ts` runs it.
 - **Results**: `metrics`, written 24 h and 72 h after each post by the results routine (sample rows in demo mode, flagged in `platform_data`); read by `src/services/stats.ts`.
 - **Assistant connections (OAuth)**: `oauth_client`, `oauth_consent`, `oauth_access_token`, `oauth_refresh_token`, `oauth_resource`, `oauth_client_resource`, `oauth_client_assertion`, `jwks`, all owned by the Better Auth OAuth provider and JWT plugins. The MCP server reads `oauth_consent` on every call so disconnecting is immediate.
 - **Push**: `devices` (APNs tokens per user; `src/lib/push.ts`, pure wording in `push-message.ts`).
@@ -332,6 +333,49 @@ erDiagram
     jsonb allow_emails
     timestamp_with_time_zone updated_at
   }
+  history_chunks {
+    uuid import_id
+    text user_id
+    integer idx
+    bytea data
+  }
+  history_imports {
+    uuid id PK
+    text user_id
+    text source
+    text file_name
+    integer bytes
+    integer chunk_bytes
+    integer chunks
+    text status
+    jsonb progress
+    jsonb stats
+    numeric_10__6_ cost_usd
+    text error
+    timestamp_with_time_zone created_at
+    timestamp_with_time_zone updated_at
+    timestamp_with_time_zone finished_at
+  }
+  history_messages {
+    uuid id PK
+    text user_id
+    uuid import_id
+    text conversation
+    timestamp_with_time_zone sent_at
+    text body
+    text hash
+  }
+  history_suggestions {
+    uuid id PK
+    text user_id
+    uuid import_id
+    text kind
+    text body
+    text evidence
+    text status
+    timestamp_with_time_zone created_at
+    timestamp_with_time_zone decided_at
+  }
   holds {
     text user_id
     text name
@@ -458,6 +502,13 @@ erDiagram
   examples ||--o{ example_media : "example_id"
   user ||--o{ example_media : "user_id"
   user ||--o{ examples : "user_id"
+  history_imports ||--o{ history_chunks : "import_id"
+  user ||--o{ history_chunks : "user_id"
+  user ||--o{ history_imports : "user_id"
+  user ||--o{ history_messages : "user_id"
+  history_imports ||--o{ history_messages : "import_id"
+  user ||--o{ history_suggestions : "user_id"
+  history_imports ||--o{ history_suggestions : "import_id"
   user ||--o{ holds : "user_id"
   user ||--o{ inputs : "user_id"
   user ||--o{ jobs : "user_id"
