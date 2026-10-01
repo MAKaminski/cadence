@@ -4,6 +4,10 @@ All notable changes to Cadence. The format follows [Keep a Changelog](https://ke
 
 ## [Unreleased]
 
+### Fixed
+- **Every sign-in route answered 500 on a server without Stripe keys** (2026-10-01, after the deploy of `f494b07`): `deploy/.env` lists every setting, so an unset `STRIPE_SECRET_KEY` arrives as an empty string, and `new Stripe("")` threw while the auth module loaded. The placeholder now covers empty as well as missing (`||`), and sign-up no longer calls Stripe until a key is set (checkout creates the customer). `tests/auth-boot.test.ts` loads the auth module with every optional setting blank.
+- `/app/inputs` no longer logs an error for someone who hasn't finished setup (they were already sent to setup).
+
 ### Added
 - **Usage across features** (`/app/admin/usage?feature=`): the operator page switches between Examples and AI history import, with the same totals, 30-day chart, by-action table and most active people for each; the flag card shows only for flagged features, and import adds messages kept and suggestions accepted. A consolidated end-to-end test (`e2e/journey.spec.ts`) takes one person through import, setup, Inputs, X, examples, drafts on both channels, numbers, Results, Settings and usage.
 - **Inputs and the nav, consolidated with Settings, import and post numbers**: Inputs also lists your AI history (Increase while import suggestions wait or you have fewer than 5 facts), post numbers (Increase while a LinkedIn post over a day old has none and they aren't read automatically), your name and photo, and your billing plan (when annual is offered). The nav's single Settings entry is your photo, name and the gear, in the Report + edit group; Published moves to Report + edit (you add numbers there); AI history sits under Inputs. Import and Published link back to All inputs.
