@@ -83,8 +83,8 @@ export const auth = betterAuth({
     // Keep the platform-level view of the LinkedIn connection current on every sign-in. The token stays
     // in Better Auth's (encrypted) account row; this row carries identity, status and expiry.
     account: {
-      create: { after: async (acc) => { await linkPlatformAccount(acc); } },
-      update: { after: async (acc) => { await linkPlatformAccount(acc); } },
+      create: { after: async (acc) => { await linkPlatformAccount(acc); await linkedinPhoto(acc); } },
+      update: { after: async (acc) => { await linkPlatformAccount(acc); await linkedinPhoto(acc); } },
     },
   },
   plugins: [
@@ -142,6 +142,15 @@ export const auth = betterAuth({
 });
 
 export type Session = typeof auth.$Infer.Session;
+
+/** An email sign-up that connects LinkedIn later gets its LinkedIn photo as the default, like a LinkedIn
+ *  sign-up does (see fillLinkedInPhoto). The token is decrypted server-side by Better Auth. */
+async function linkedinPhoto(acc: { id?: string; providerId: string; userId: string }) {
+  if (acc.providerId !== "linkedin" || !acc.id) return;
+  const { fillLinkedInPhoto } = await import("@/services/avatar");
+  await fillLinkedInPhoto(acc.userId, async () =>
+    (await auth.api.getAccessToken({ body: { accountId: acc.id!, userId: acc.userId } })).accessToken);
+}
 
 /** Keep platform_accounts (the channel view) in step with Better Auth's account rows (the tokens). */
 async function linkPlatformAccount(acc: { providerId: string; accountId: string; userId: string; accessTokenExpiresAt?: Date | null; refreshToken?: string | null }) {

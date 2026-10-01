@@ -81,6 +81,33 @@ d("profile photos are per user", () => {
     expect(await svc.getAvatar(A)).not.toBeNull();
   });
 
+  it("an email sign-up that connects LinkedIn gets its LinkedIn photo, without ever overwriting one", async () => {
+    const C = `av-c-${Date.now()}`;
+    await mod.db.insert(s.user).values({ id: C, name: C, email: `${C}@example.com`, emailVerified: true });
+    const asked: string[] = [];
+    const linkedin = (body: unknown, status = 200) => (async (url: string | URL | Request, init?: RequestInit) => {
+      asked.push(`${url} ${new Headers(init?.headers).get("authorization")}`);
+      return new Response(JSON.stringify(body), { status });
+    }) as typeof fetch;
+    try {
+      // LinkedIn says no, or offers something that isn't an https picture: nothing changes, nothing throws.
+      expect(await svc.fillLinkedInPhoto(C, async () => "tok", linkedin({}, 401))).toBe(false);
+      expect(await svc.fillLinkedInPhoto(C, async () => "tok", linkedin({ picture: "javascript:alert(1)" }))).toBe(false);
+      expect(await svc.fillLinkedInPhoto(C, async () => { throw new Error("token gone"); }, linkedin({}))).toBe(false);
+      // The first good answer fills it in, using the account's token.
+      expect(await svc.fillLinkedInPhoto(C, async () => "tok", linkedin({ picture: "https://media.licdn.com/c.jpg" }))).toBe(true);
+      expect(asked.at(-1)).toBe("https://api.linkedin.com/v2/userinfo Bearer tok");
+      const [c] = await mod.db.select({ image: s.user.image }).from(s.user).where(sql`id = ${C}`);
+      expect(c.image).toBe("https://media.licdn.com/c.jpg");
+      // Once there's a photo, later sign-ins leave it alone and don't even ask LinkedIn.
+      const n = asked.length;
+      expect(await svc.fillLinkedInPhoto(C, async () => "tok", linkedin({ picture: "https://media.licdn.com/other.jpg" }))).toBe(false);
+      expect(asked.length).toBe(n);
+    } finally {
+      await mod.db.delete(s.user).where(sql`${s.user.id} = ${C}`);
+    }
+  });
+
   it("'Use my LinkedIn photo' forgets the upload, and deleting the account deletes the photo", async () => {
     await svc.removeAvatar(A);
     expect((await svc.avatarFor({ id: A, image: "https://media.licdn.com/p.jpg" })).uploaded).toBe(false);
