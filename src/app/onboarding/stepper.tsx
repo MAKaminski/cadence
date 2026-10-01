@@ -21,7 +21,7 @@ const TITLES = ["About you", "Your voice", "Your rhythm"];
 const WHY = [
   "Cadence writes for a specific person and audience. The facts list is the only source of claims it will make on your behalf, so nothing invented reaches your feed.",
   "Your own posts teach it how you sound: sentence length, tone, what you never say. Topics steer what it writes about; the no-go list keeps it away from the rest.",
-  "How often and when you post. Drafts arrive before each slot for you to approve. You can change all of this later in Settings.",
+  "How often and when you post. Drafts arrive before each slot for you to approve. You can change all of this later on Inputs.",
 ];
 
 function Field({ id, label, hint, children }: { id: string; label: string; hint?: string; children: React.ReactNode }) {

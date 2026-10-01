@@ -1,8 +1,9 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { and, eq, gte, inArray, sql } from "drizzle-orm";
+import { eq, gte, sql } from "drizzle-orm";
 import { asUser } from "@/db";
-import { drafts, llmUsage, platformAccounts, profiles } from "@/db/schema";
+import { llmUsage, platformAccounts, profiles } from "@/db/schema";
+import { autoPublishLeft } from "@/services/drafts";
 import { requireSubscriber } from "@/lib/session";
 import { LIMITS } from "@/lib/catalog";
 import { isDemo } from "@/lib/mode";
@@ -17,6 +18,7 @@ import { Connections, type Connection } from "./connections";
 import { DeleteAccount } from "./delete-account";
 import { ConnectLinkedIn } from "@/components/connect-linkedin";
 import { linkedinConfigured } from "@/lib/linkedin-config";
+import { InputsLink } from "@/components/inputs-link";
 
 export const metadata: Metadata = { title: "Settings" };
 
@@ -25,7 +27,7 @@ export default async function Settings() {
   const monthStart = new Date(Date.UTC(new Date().getUTCFullYear(), new Date().getUTCMonth(), 1));
   const s = await asUser(user.id, async (tx) => ({
     p: (await tx.select({ auto: profiles.autoPublish, model: profiles.model }).from(profiles).where(eq(profiles.userId, user.id)))[0],
-    clean: (await tx.select({ n: sql<number>`count(*)::int` }).from(drafts).where(and(inArray(drafts.status, ["scheduled", "published"]), sql`${drafts.gate}->>'verdict' = 'ok'`)))[0].n,
+    left: await autoPublishLeft(tx),
     conn: (await tx.select().from(platformAccounts).where(eq(platformAccounts.platform, "linkedin")).limit(1))[0],
     spent: Number((await tx.select({ usd: sql<string>`coalesce(sum(${llmUsage.costUsd}),0)` }).from(llmUsage).where(gte(llmUsage.createdAt, monthStart)))[0].usd),
   }));
@@ -36,14 +38,17 @@ export default async function Settings() {
   const connections: Connection[] = (await db.select({ clientId: oauthConsent.clientId, name: oauthClient.name, scopes: oauthConsent.scopes, since: oauthConsent.createdAt })
     .from(oauthConsent).innerJoin(oauthClient, eq(oauthClient.clientId, oauthConsent.clientId)).where(eq(oauthConsent.userId, user.id)))
     .map((c) => ({ ...c, name: c.name ?? "Assistant", since: c.since.toISOString() }));
-  const remaining = Math.max(0, LIMITS.autoPublishAfter - s.clean);
+  const remaining = s.left;
   const demo = isDemo();
   return (
     <div className="flex flex-col gap-6">
-      <h1 className="text-2xl font-semibold tracking-tight">Settings</h1>
+      <div>
+        <h1 className="text-2xl font-semibold tracking-tight">Settings</h1>
+        <p className="mt-2"><InputsLink page="/app/settings" /></p>
+      </div>
       <Card>
-        <CardHeader><CardTitle>Your setup</CardTitle><CardDescription>Who you are, your facts, your voice, your posting rhythm and writing model ({s.p?.model === "claude-opus-5" ? "Claude Opus 5" : "Claude Sonnet 5"}).</CardDescription></CardHeader>
-        <CardContent><Button variant="outline" render={<Link href="/onboarding?edit=1" />}>Edit setup</Button></CardContent>
+        <CardHeader><CardTitle>Your setup</CardTitle><CardDescription>Who you are, your facts, your voice, your posting rhythm and writing model ({s.p?.model === "claude-opus-5" ? "Claude Opus 5" : "Claude Sonnet 5"}). Each one is also on Inputs, next to what it drives.</CardDescription></CardHeader>
+        <CardContent className="flex flex-wrap gap-2"><Button variant="outline" render={<Link href="/app/inputs" />}>Edit on Inputs</Button><Button variant="ghost" render={<Link href="/onboarding?edit=1" />}>Walk through setup again</Button></CardContent>
       </Card>
       <Card>
         <CardHeader><CardTitle>Posting</CardTitle><CardDescription>Model use this month: ${s.spent.toFixed(2)} of ${LIMITS.monthlyCapUsd} included.</CardDescription></CardHeader>

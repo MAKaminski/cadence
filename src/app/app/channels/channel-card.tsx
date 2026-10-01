@@ -10,7 +10,8 @@ import { authClient } from "@/lib/auth-client";
 import type { ChannelView } from "@/services/channels";
 import * as act from "./actions";
 
-export function ChannelCard({ c, demo }: { c: ChannelView; demo: boolean }) {
+/** Connect, toggle and disconnect one channel. Shared by the Channels page and the Inputs page. */
+export function useChannel(c: ChannelView, demo: boolean, back = "/app/channels") {
   const router = useRouter();
   const [busy, start] = useTransition();
   const [opening, setOpening] = useState(false);
@@ -18,13 +19,19 @@ export function ChannelCard({ c, demo }: { c: ChannelView; demo: boolean }) {
     const r = await fn();
     if (!r.ok) toast.error(r.error ?? "Not saved."); else { toast.success(done); router.refresh(); }
   });
-  /** One click: off to the platform's consent screen and back here, connected. */
+  /** One click: off to the platform's consent screen and back, connected. */
   const connect = async () => {
     if (demo) return save(() => act.connectDemo(c.id), `${c.name} connected (demo).`);
     setOpening(true);
-    const { error } = await authClient.linkSocial({ provider: c.provider as "twitter", callbackURL: "/app/channels", errorCallbackURL: "/app/channels" });
+    const { error } = await authClient.linkSocial({ provider: c.provider as "twitter", callbackURL: back, errorCallbackURL: back });
     if (error) { toast.error(error.message ?? `Could not open ${c.name}. Try again.`); setOpening(false); }
   };
+  const setDrafting = (on: boolean) => save(() => act.setDrafting(c.id, on), on ? `${c.name} drafts on.` : `${c.name} drafts off.`);
+  return { busy, opening, save, connect, setDrafting };
+}
+
+export function ChannelCard({ c, demo }: { c: ChannelView; demo: boolean }) {
+  const { busy, opening, save, connect, setDrafting } = useChannel(c, demo);
   const conn = c.connection;
   const state = !conn ? null : conn.status === "active" ? "Connected" : conn.status === "expiring" ? "Ending soon" : "Reconnect needed";
   return (
@@ -44,7 +51,7 @@ export function ChannelCard({ c, demo }: { c: ChannelView; demo: boolean }) {
           <label className="flex items-center justify-between gap-3">
             <span>Draft each post for {c.name} <span className="text-muted-foreground">(up to {c.maxChars} characters)</span></span>
             <Switch checked={conn.drafting} disabled={busy} aria-label={`Draft for ${c.name}`}
-              onCheckedChange={(on) => save(() => act.setDrafting(c.id, on), on ? `${c.name} drafts on.` : `${c.name} drafts off.`)} />
+              onCheckedChange={setDrafting} />
           </label>
         )}
         <div className="flex flex-wrap gap-2">

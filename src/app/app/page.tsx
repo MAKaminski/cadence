@@ -16,6 +16,7 @@ import { isDemo } from "@/lib/mode";
 import { PERSONA } from "@/lib/demo-persona";
 import { ConnectLinkedIn } from "@/components/connect-linkedin";
 import { linkedinConfigured } from "@/lib/linkedin-config";
+import { InputsLink } from "@/components/inputs-link";
 
 export const metadata: Metadata = { title: "This week" };
 
@@ -53,6 +54,7 @@ export default async function ThisWeek() {
           <span><span className="font-semibold tabular-nums">{streak.streakWeeks}</span> week streak</span>
           <Link href="/app/results" className="text-primary underline-offset-4 hover:underline">See results</Link>
         </p>
+        <p className="mt-2"><InputsLink page="/app" /></p>
       </div>
 
       {!data.connected && !isDemo() && <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border p-3 text-sm" data-testid="connect-linkedin">

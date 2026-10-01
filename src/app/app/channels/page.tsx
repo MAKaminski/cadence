@@ -3,6 +3,7 @@ import { requireSubscriber } from "@/lib/session";
 import { isDemo } from "@/lib/mode";
 import { listChannels } from "@/services/channels";
 import { ChannelCard } from "./channel-card";
+import { InputsLink } from "@/components/inputs-link";
 
 export const metadata: Metadata = { title: "Channels" };
 
@@ -18,6 +19,7 @@ export default async function ChannelsPage({ searchParams }: { searchParams: Pro
           Where your posts go. Connect a channel in one click; Cadence writes a version of every post that fits it, and you approve each one.
           No API keys needed.
         </p>
+        <p className="mt-2"><InputsLink page="/app/channels" /></p>
       </div>
       {error && <p className="rounded-lg border border-red-300 p-3 text-sm text-red-700" role="alert">That connection didn&apos;t finish ({error}). Try again.</p>}
       <section aria-label="Available" className="grid items-start gap-4 md:grid-cols-2" data-testid="channels-live">

@@ -6,6 +6,7 @@ import { profiles } from "@/db/schema";
 import { requireSubscriber } from "@/lib/session";
 import { Wordmark } from "@/components/site-chrome";
 import { Stepper } from "./stepper";
+import { InputsLink } from "@/components/inputs-link";
 import { isDemo } from "@/lib/mode";
 import { PERSONA } from "@/lib/demo-persona";
 
@@ -28,8 +29,9 @@ export default async function OnboardingPage({ searchParams }: { searchParams: P
     <div className="flex flex-1 flex-col">
       <header className="border-b"><div className="mx-auto flex h-14 max-w-2xl items-center px-4"><Wordmark /></div></header>
       <main className="mx-auto w-full max-w-2xl flex-1 px-4 py-10">
+        {editing && <p className="mb-6"><InputsLink page="/onboarding" /></p>}
         <Stepper returnToApp={fromIos} example={isDemo() ? PERSONA : undefined} initial={{
-          step: editing ? 1 : (p?.onboardingStep ?? 1),
+          step: editing ? Math.min(3, Math.max(1, Number(q.step) || 1)) : (p?.onboardingStep ?? 1),
           role: str(about.role), audience: str(about.audience), goals: str(about.goals), facts: list(p?.facts).join("\n"),
           samples: [samples[0] ?? "", samples[1] ?? "", samples[2] ?? ""], topics: list(p?.topics).join(", "), noGo: list(p?.noGo).join(", "),
           perWeek: Number(cadence.perWeek ?? 3), days: list(cadence.days).length ? list(cadence.days) : ["Tue", "Wed", "Thu"],
