@@ -5,6 +5,8 @@ All notable changes to Cadence. The format follows [Keep a Changelog](https://ke
 ## [Unreleased]
 
 ### Added
+- **Sign up and sign in with email.** The login page offers an emailed link (Better Auth magic link, sent through Resend) before "Continue with LinkedIn". The link opens a confirm page, so a mail scanner can't use it up; it works once, expires in 15 minutes, and the token is stored hashed. Offered only when `RESEND_API_KEY` and `EMAIL_FROM` are set (always in demo mode, where the email is printed).
+- **Connect LinkedIn from inside the app.** Email accounts connect LinkedIn (needed to publish) from a banner on This week or from Settings, through account linking; the same button renews an expiring connection.
 - **Cadence for iOS** (`ios/`): SwiftUI app for iOS 26+ with OAuth sign-in (dynamic registration, PKCE, refresh), This week, draft detail with the "why" sheet, edit, approve (confirms the exact text), skip, check-in with on-device voice (SpeechAnalyzer), Results in Swift Charts, Settings with account deletion, US web-checkout link-out and web setup in the same secure browser session, push registration and routing, and a "This week" widget.
 - CadenceKit Swift package: API client generated from `docs/openapi.json` by Apple's swift-openapi-generator; unit tests for PKCE (RFC 7636 vector), callback state, refresh single-flight, revocation and form encoding.
 - API operations have stable `operationId`s (`getMe`, `approveDraft`, …).

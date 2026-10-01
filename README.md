@@ -200,7 +200,7 @@ pnpm arch && pnpm catalog   # regenerate ARCHITECTURE.md's ERD and this README's
 
 ## Roadmap
 
-- [x] Sign in with LinkedIn, Stripe trial and subscription, guided setup
+- [x] Sign in with email or LinkedIn, Stripe trial and subscription, guided setup
 - [x] Weekly check-in → drafts in your voice, with fact, quality, repeat and never-write-about checks
 - [x] Approve, edit, skip, post now; scheduling in your time zone; publishing exactly once
 - [x] Reminders, monthly cost cap, demo mode, demo video

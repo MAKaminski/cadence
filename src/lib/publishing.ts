@@ -30,7 +30,7 @@ export async function publishDraft(userId: string, draftId: string): Promise<str
     .where(and(eq(platformAccounts.platform, d.platform), eq(platformAccounts.status, "active"))).limit(1))[0]);
 
   try {
-    if (!acc) throw new PublishError("No active LinkedIn connection. Sign in with LinkedIn again.", true);
+    if (!acc) throw new PublishError("No active LinkedIn connection. Connect LinkedIn in Settings.", true);
     const out = await adapterFor(d.platform, acc).publish({ userId, authorUrn: acc.externalId, text: d.body });
     if (FAULT() === "after_publish") process.exit(86); // publish-safety test: die after the platform said yes
     await asUser(userId, async (tx) => {
