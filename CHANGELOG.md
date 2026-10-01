@@ -5,6 +5,14 @@ All notable changes to Cadence. The format follows [Keep a Changelog](https://ke
 ## [Unreleased]
 
 ### Added
+- **Examples** (`/app/examples`, behind the `examples` feature flag): paste a link to a post or visual, or upload one, and give it a thumbs up or down.
+  - Links are fetched by the server with a guard: http(s) on ports 80/443 only, every address checked after DNS at connect time (no private, loopback or link-local addresses), at most 5 redirects each checked again, 10 s timeout. A page's title, author, text and its preview image or video are kept; a direct link to an image, GIF, video or PDF is kept as the file.
+  - Uploads: PNG, JPEG, WebP, GIF, MP4, WebM, MOV or PDF, **5 MB at most per file** (link media too). The type is read from the file's bytes, not its name; SVG is refused. Files are served only to their owner, with `nosniff` and a sandboxing CSP.
+  - Each example is analysed once (the person's chosen model, against the monthly allowance): format, hook, shape, length, tone, visual and its motion, the close and whether it is engagement bait, strengths, weaknesses and one transferable technique. Technique only, never the topic or wording.
+  - **Ratings steer drafting**: up to 8 liked and 8 disliked analyses become a "do more of / avoid" block in each drafting brief (outside the cached system prompt). The draft's "Why this draft" says how many steered it. The page shows what the ratings currently teach.
+  - Up to 200 examples per person; past that the oldest unrated one makes room.
+- **Feature flags** (`feature_flags` table, `pnpm flag`): off unless on for everyone or the account's email is allow-listed. Demo mode turns every flag on. Nav items for flagged features show only to people who have them.
+- **Usage measurement** (`usage_events` table): every add, upload, rating, analysis (with its cost), failure and delete is one row. `/app/admin/usage`, for emails in `CADENCE_ADMINS`, shows the flag's state, people, actions, stored files and size, analysis cost, a 30-day daily chart and the most active accounts.
 - **Plan** (`/app/plan`): how much you post and comment, and when, per user.
   - **Posts a week**, 0–21: a stepper shows what one more or one fewer would change before you apply it, across three daily slots (A, B, C). Each slot has its own time and days, and a cell turns one slot on or off for one day. Approved posts go into the next free slot of any slot that's on.
   - **Comments a day**, 0–40, inside a window you set and at least N minutes apart. One more goes in the widest gap, never on the hour; one fewer comes out of the most crowded spot; "Space them evenly" re-spaces them. These are plans for the optional Cadence runner and nothing runs them yet.

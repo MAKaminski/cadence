@@ -12,6 +12,8 @@ import type { GateRecord } from "@/engine/types";
 import { writer, type Brief, type Model, type Usage } from "@/lib/llm";
 import { enqueue } from "@/lib/jobs";
 import { push } from "@/lib/push";
+import { flagOnFor } from "@/lib/flags";
+import { guidance, guidanceText } from "@/services/examples";
 
 export class CapReached extends Error {}
 
@@ -26,7 +28,7 @@ export async function monthSpend(userId: string) {
 
 /** Check the cap and record the spend in one transaction, holding the user's profile row, so two
  *  jobs for the same user can't both slip under the cap. */
-async function spend(userId: string, run: () => Promise<Usage>): Promise<Usage> {
+export async function spend(userId: string, run: () => Promise<Usage>): Promise<Usage> {
   return asUser(userId, async (tx) => {
     await tx.execute(sql`select 1 from profiles where user_id = ${userId} for update`);
     const [r] = await tx.select({ usd: sql<string>`coalesce(sum(${llmUsage.costUsd}), 0)` }).from(llmUsage).where(gte(llmUsage.createdAt, monthStart()));
@@ -54,6 +56,10 @@ export async function draftFromCheckin(userId: string, inputId: string) {
     topics: profile.topics as string[], noGo: profile.noGo as string[],
     notes: input.body, recent, count: Math.min(Math.max(cadence.perWeek ?? 3, 1), 5), model: profile.model as Model,
   };
+  // Rated examples steer the writer when the feature is on for this person.
+  const taught = (await flagOnFor("examples", userId)) ? await guidance(userId) : null;
+  const examplesText = taught && guidanceText(taught);
+  if (examplesText) brief.examples = examplesText;
   const ctx: Context = { facts: brief.facts, notes: [brief.notes], topics: brief.topics, noGo: brief.noGo, recent };
   const w = writer();
 
@@ -85,6 +91,7 @@ export async function draftFromCheckin(userId: string, inputId: string) {
       angle: post.angle, why: post.why, checks: best.checks, adjustments,
       verdict: best.verdict === "held" ? "held" : "ok", rewritten,
       model: first.model, costUsd: Math.round(cost * 10000) / 10000, variantsConsidered: post.variants.length,
+      ...(examplesText && taught ? { examples: { up: taught.up, down: taught.down } } : {}),
     };
     if (gate.verdict === "held") held++; else ready++;
     await asUser(userId, async (tx) => {

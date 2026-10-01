@@ -35,6 +35,21 @@ export const PLANNER = {
   commentGapMinutes: 20,
 } as const;
 
+/** Examples (src/services/examples.ts): what you can add and how much of it steers drafting. */
+export const EXAMPLES = {
+  /** Largest file per example, uploaded or fetched from a URL. */
+  maxBytes: 5 * 1024 * 1024,
+  /** Examples kept per person; the oldest unrated ones go first past this. */
+  maxPerUser: 200,
+  /** How many rated examples of each kind (up, down) shape a draft. */
+  guidanceMax: 8,
+  /** Fetching a URL: give up after this long or this many redirects. */
+  fetchTimeoutMs: 10_000,
+  maxRedirects: 5,
+  /** Characters of post text kept per example. */
+  bodyChars: 4000,
+} as const;
+
 /** Openers and phrases that read as machine-written. A hit means one rewrite. */
 export const BANNED_PHRASES = [
   "in today's fast-paced world", "game-changer", "game changer", "let that sink in", "unlock the power",

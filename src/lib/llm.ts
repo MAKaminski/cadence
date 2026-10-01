@@ -15,6 +15,8 @@ export type Brief = {
   about: { role?: string; audience?: string; goals?: string };
   facts: string[]; voiceSamples: string[]; topics: string[]; noGo: string[];
   notes: string; recent: string[]; count: number; model: Model;
+  /** What the person's rated examples teach (src/services/examples.ts guidanceText), or absent. */
+  examples?: string;
 };
 export type Candidate = { angle: string; why: string; variants: string[] };
 export type Usage = { model: string; tokensIn: number; tokensOut: number; costUsd: number };
@@ -78,7 +80,7 @@ const claudeWriter: Writer = {
       system: [{ type: "text", text: RULES }, { type: "text", text: profileBlock(b), cache_control: { type: "ephemeral" } }],
       messages: [{
         role: "user",
-        content: `NOTES (this week):\n${b.notes}\n\nRECENT posts:\n${b.recent.slice(0, 5).map((r) => `--- \n${r}`).join("\n") || "(none)"}\n\nWrite ${b.count} post${b.count > 1 ? "s" : ""}, each on a different angle from the notes, with ${LIMITS.variants} variants each.`,
+        content: `NOTES (this week):\n${b.notes}\n\nRECENT posts:\n${b.recent.slice(0, 5).map((r) => `--- \n${r}`).join("\n") || "(none)"}${b.examples ? `\n\nEXAMPLES:\n${b.examples}` : ""}\n\nWrite ${b.count} post${b.count > 1 ? "s" : ""}, each on a different angle from the notes, with ${LIMITS.variants} variants each.`,
       }],
       output_config: { format: zodOutputFormat(Output) },
     });

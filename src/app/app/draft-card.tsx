@@ -68,6 +68,7 @@ export function DraftCard({ d }: { d: DraftView }) {
               <div><p className="font-medium">What changed</p><ul className="ml-4 list-disc text-muted-foreground">{g.adjustments.map((a) => <li key={a}>{a}</li>)}</ul></div>
             )}
             <p className="text-muted-foreground">Picked from {g.variantsConsidered} variants{g.rewritten ? ", rewritten once" : ""} · {g.model} · ${g.costUsd.toFixed(4)}</p>
+            {g.examples && <p className="text-muted-foreground">Steered by your rated examples: {g.examples.up} liked, {g.examples.down} disliked.</p>}
           </div>
         </details>
       </CardContent>

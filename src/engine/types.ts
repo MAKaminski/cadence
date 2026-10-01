@@ -17,4 +17,6 @@ export type GateRecord = {
   model: string;
   costUsd: number;
   variantsConsidered: number;
+  /** Rated examples that steered the draft (Examples page), when the feature is on and any are rated. */
+  examples?: { up: number; down: number };
 };
