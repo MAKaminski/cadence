@@ -3,15 +3,26 @@
 import { eq, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { featureFlags } from "@/db/schema";
-import type { Flag } from "@/lib/flags";
+import { FLAGS } from "@/lib/flags";
 
 const rows = <T>(r: unknown) => r as T[];
 
+/** Every feature that records usage events, with what its three daily series count (SQL `like`
+ *  patterns on the action) and their names on the page. */
+export const FEATURES = {
+  examples: { label: "Examples", series: [["add_%", "Added"], ["rate_%", "Rated"], ["analyze", "Analysed"]] },
+  import: { label: "AI history import", series: [["upload_done", "Uploaded"], ["accept_%", "Accepted"], ["distill", "Distilled"]] },
+} as const;
+export type Feature = keyof typeof FEATURES;
+export const isFeature = (f: unknown): f is Feature => typeof f === "string" && f in FEATURES;
+
 export type UsageReport = Awaited<ReturnType<typeof usageReport>>;
 
-export async function usageReport(feature: Flag, days = 30) {
+export async function usageReport(feature: Feature, days = 30) {
   const since = sql`now() - make_interval(days => ${days})`;
-  const [flag] = await db.select().from(featureFlags).where(eq(featureFlags.key, feature));
+  const flagged = feature in FLAGS;
+  const [flag] = flagged ? await db.select().from(featureFlags).where(eq(featureFlags.key, feature)) : [];
+  const [a, b, c] = FEATURES[feature].series.map(([pattern]) => pattern);
   const actions = rows<{ action: string; events: number; users: number; bytes: number; cost: number }>(await db.execute(sql`
     select action, count(*)::int as events, count(distinct user_id)::int as users,
            coalesce(sum(bytes), 0)::bigint::float8 as bytes, coalesce(sum(cost_usd), 0)::float8 as cost
@@ -20,9 +31,9 @@ export async function usageReport(feature: Flag, days = 30) {
   const daily = rows<{ day: string; added: number; rated: number; analyzed: number; cost: number }>(await db.execute(sql`
     with d as (select generate_series(date_trunc('day', now()) - make_interval(days => ${days - 1}), date_trunc('day', now()), interval '1 day') as day)
     select to_char(d.day, 'YYYY-MM-DD') as day,
-           count(u.id) filter (where u.action like 'add_%')::int as added,
-           count(u.id) filter (where u.action like 'rate_%')::int as rated,
-           count(u.id) filter (where u.action = 'analyze')::int as analyzed,
+           count(u.id) filter (where u.action like ${a})::int as added,
+           count(u.id) filter (where u.action like ${b})::int as rated,
+           count(u.id) filter (where u.action like ${c})::int as analyzed,
            coalesce(sum(u.cost_usd), 0)::float8 as cost
     from d left join usage_events u on u.feature = ${feature} and date_trunc('day', u.created_at) = d.day
     group by d.day order by d.day`));
@@ -36,6 +47,12 @@ export async function usageReport(feature: Flag, days = 30) {
            (select count(*) from example_media)::int as files,
            (select coalesce(sum(bytes), 0) from example_media)::bigint::float8 as bytes,
            (select count(*) from examples where analysis_status = 'failed')::int as failed`)) : [];
+  const [imports] = feature === "import" ? rows<{ imports: number; messages: number; pending: number; accepted: number; failed: number }>(await db.execute(sql`
+    select (select count(*) from history_imports)::int as imports,
+           (select count(*) from history_messages)::int as messages,
+           (select count(*) from history_suggestions where status = 'pending')::int as pending,
+           (select count(*) from history_suggestions where status = 'accepted')::int as accepted,
+           (select count(*) from history_imports where status = 'failed')::int as failed`)) : [];
   const people = rows<{ email: string; events: number; cost: number; last: string }>(await db.execute(sql`
     select u.email, count(e.id)::int as events, coalesce(sum(e.cost_usd), 0)::float8 as cost, to_char(max(e.created_at), 'YYYY-MM-DD') as last
     from usage_events e join "user" u on u.id = e.user_id
@@ -43,7 +60,8 @@ export async function usageReport(feature: Flag, days = 30) {
     group by u.email order by events desc limit 10`));
   return {
     feature, days,
-    flag: { enabledForAll: flag?.enabledForAll ?? false, allowEmails: (flag?.allowEmails as string[] | undefined) ?? [] },
-    totals, actions, daily, stored: stored ?? null, people,
+    flag: flagged ? { enabledForAll: flag?.enabledForAll ?? false, allowEmails: (flag?.allowEmails as string[] | undefined) ?? [] } : null,
+    series: FEATURES[feature].series.map(([, name]) => name),
+    totals, actions, daily, stored: stored ?? null, imports: imports ?? null, people,
   };
 }
