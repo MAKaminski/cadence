@@ -57,7 +57,7 @@ test("demo: sign up, trial, set up, check in, approve, publish", async ({ page }
 
   // Results: sample metrics arrive from the worker within seconds; history makes the trends visible.
   await page.goto("/app/results");
-  await page.getByRole("button", { name: /sample history/i }).click();
+  await page.getByTestId("seed-history").getByRole("button", { name: "Steady" }).click();
   await expect(page.getByTestId("chart-outreach")).toBeVisible();
   await expect(page.getByTestId("chart-impact")).toBeVisible();
   await expect(page.getByTestId("chart-what-works")).toBeVisible();

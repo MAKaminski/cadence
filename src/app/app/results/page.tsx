@@ -63,14 +63,14 @@ export default async function Results({ searchParams }: { searchParams: Promise<
         </div>
       </div>
 
-      <section className="grid gap-3 sm:grid-cols-4" aria-label="Consistency">
+      <section id="consistency" className="grid scroll-mt-6 gap-3 sm:grid-cols-4" aria-label="Consistency">
         <Stat label="This week" value={`${thisWeek.posts} / ${thisWeek.target}`} hint="posts published vs your target" />
         <Stat label="Weeks on target" value={c.streakWeeks} hint="in a row" />
         <Stat label="Approved this month" value={c.approved} hint={`${c.edited} edited · ${c.held} held · ${c.skipped} skipped`} />
         <Stat label="Check-in to post" value={c.medianHoursToPost == null ? "–" : `${c.medianHoursToPost} h`} hint="median" />
       </section>
 
-      <Card>
+      <Card id="outreach" className="scroll-mt-6">
         <CardHeader>
           <CardTitle>Outreach: posts per week</CardTitle>
           <CardDescription>How to read this: each bar is a week; solid bars met your target (the dashed line), faded bars fell short. Steady beats spiky on LinkedIn.</CardDescription>
@@ -78,7 +78,7 @@ export default async function Results({ searchParams }: { searchParams: Promise<
         <CardContent><OutreachChart data={weeks} /></CardContent>
       </Card>
 
-      <Card>
+      <Card id="impact" className="scroll-mt-6">
         <CardHeader>
           <CardTitle>Impact: reach and engagement per post</CardTitle>
           <CardDescription>How to read this: bars are impressions (how many saw it); the solid line is engagement rate (reactions, comments and reshares per impression); the dashed line smooths it over 4 posts. The darker bar is your best post.</CardDescription>
@@ -86,7 +86,7 @@ export default async function Results({ searchParams }: { searchParams: Promise<
         <CardContent>{posts.length ? <ImpactChart data={posts} /> : waiting}</CardContent>
       </Card>
 
-      <Card>
+      <Card id="what-works" className="scroll-mt-6">
         <CardHeader>
           <CardTitle>What works for you</CardTitle>
           <CardDescription>How to read this: average engagement rate grouped three ways. Longer bars did better. With only a few posts, treat it as a hint, not a rule; Cadence will use it to steer drafts once there are enough.</CardDescription>

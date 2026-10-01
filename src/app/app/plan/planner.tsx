@@ -44,9 +44,16 @@ export function Planner({ plan, limits }: { plan: Plan; limits: Limits }) {
 
 type Save = (fn: () => Promise<{ ok: boolean; error?: string }>, done?: string) => void;
 
+/** The patch that turns one slot on or off for one day (the slot switches off with its last day). */
+export function dayToggle(r: ScheduleView, i: number) {
+  const was = r.mode === "off" ? "0000000" : r.days;
+  const mask = [...was].map((c, j) => (j === i ? (c === "1" ? "0" : "1") : c)).join("");
+  return !mask.includes("1") ? { mode: "off" as const } : r.mode === "off" ? { mode: "live" as const, days: mask } : { days: mask };
+}
+
 function PauseCard({ paused, reason, busy, save }: { paused: boolean; reason: string | null; busy: boolean; save: Save }) {
   return (
-    <div className={cn("flex flex-wrap items-center justify-between gap-3 rounded-xl border p-4", paused && "border-amber-300 bg-amber-50 dark:bg-amber-950")} data-testid="pause">
+    <div id="pause" className={cn("scroll-mt-6 flex flex-wrap items-center justify-between gap-3 rounded-xl border p-4", paused && "border-amber-300 bg-amber-50 dark:bg-amber-950")} data-testid="pause">
       <div>
         <p className="font-medium">{paused ? "Posting is paused" : "Posting is on"}</p>
         <p className="text-sm text-muted-foreground">{paused ? `Approved posts keep their place and wait${reason ? ` (${reason})` : ""}. Nothing is lost.` : "Approved posts go out in the slots below. Pause any time; nothing is lost."}</p>
@@ -95,14 +102,9 @@ function PostingCard({ plan, max, busy, save }: { plan: Plan; max: number; busy:
     return [on.length ? `slot ${r.slot} on ${list(on)}` : "", off.length ? `slot ${r.slot} off ${list(off)}` : ""];
   });
   const adds = changes.map((c) => c[0]).filter(Boolean), drops = changes.map((c) => c[1]).filter(Boolean);
-  const toggle = (r: ScheduleView, i: number) => {
-    const was = r.mode === "off" ? "0000000" : r.days;
-    const mask = [...was].map((c, j) => (j === i ? (c === "1" ? "0" : "1") : c)).join("");
-    const patch = !mask.includes("1") ? { mode: "off" as const } : r.mode === "off" ? { mode: "live" as const, days: mask } : { days: mask };
-    save(() => updateSchedule(r.key, patch));
-  };
+  const toggle = (r: ScheduleView, i: number) => save(() => updateSchedule(r.key, dayToggle(r, i)));
   return (
-    <Card data-testid="posting">
+    <Card id="posting" className="scroll-mt-6" data-testid="posting">
       <CardHeader>
         <CardTitle>Posts a week</CardTitle>
         <CardDescription>Up to three slots a day. Approved posts go into the next free slot; nothing posts without your approval.</CardDescription>
@@ -165,7 +167,7 @@ function CommentsCard({ plan, max, busy, save }: { plan: Plan; max: number; busy
   const say = p ? [p.on.length ? `adds ${p.on.length} at ${list(p.on.map((o) => o.local_time))}` : "", p.off.length ? `removes ${p.off.length}` : "",
     p.moved.length ? `moves ${p.moved.length}` : ""].filter(Boolean) : [];
   return (
-    <Card data-testid="comments">
+    <Card id="comments" className="scroll-mt-6" data-testid="comments">
       <CardHeader>
         <CardTitle>Comments a day</CardTitle>
         <CardDescription>Comments are written and posted by the Cadence runner on your own computer, with your own Claude account. Plan them here; nothing runs until a runner is connected.</CardDescription>

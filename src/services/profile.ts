@@ -5,6 +5,7 @@ import { eq, sql } from "drizzle-orm";
 import { asUser } from "@/db";
 import { profiles } from "@/db/schema";
 import { resetPostingFromCadence } from "./plan";
+import { ServiceError } from "./errors";
 
 export const lines = (s: string) => s.split("\n").map((l) => l.trim()).filter(Boolean);
 export const DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"] as const;
@@ -81,4 +82,11 @@ export async function patchProfile(userId: string, patch: z.infer<typeof profile
   await saveProfile(userId, values);
   if (patch.cadence) await resetPostingFromCadence(userId);
   return getProfile(userId);
+}
+
+/** The three voice samples on their own, with setup's rule (at least two real posts). */
+export async function setVoiceSamples(userId: string, samples: string[]) {
+  const p = voiceSchema.shape.samples.safeParse(samples);
+  if (!p.success) throw new ServiceError("invalid", p.error.issues[0]?.message ?? "Paste at least two posts.");
+  await saveProfile(userId, { voiceSamples: p.data.filter(Boolean) });
 }

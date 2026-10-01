@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { InputsLink } from "@/components/inputs-link";
 import { requireSubscriber } from "@/lib/session";
 import { ImportPanel } from "./panel";
 
@@ -14,6 +15,7 @@ export default async function ImportPage() {
           Years of your ChatGPT or Claude conversations already say what you do, what you care about and how you write. Upload an export and
           Cadence suggests facts, topics, sample posts, things to never write about and post ideas. You choose what goes into your profile.
         </p>
+        <p className="mt-2"><InputsLink page="/app/import" /></p>
       </div>
       <ImportPanel userId={user.id} />
     </div>

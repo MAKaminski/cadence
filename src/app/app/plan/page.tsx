@@ -3,6 +3,7 @@ import { requireSubscriber } from "@/lib/session";
 import { getPlan } from "@/services/plan";
 import { PLANNER } from "@/lib/catalog";
 import { Planner } from "./planner";
+import { InputsLink } from "@/components/inputs-link";
 
 export const metadata: Metadata = { title: "Plan" };
 
@@ -14,6 +15,7 @@ export default async function PlanPage() {
       <div>
         <h1 className="text-2xl font-semibold tracking-tight">Plan</h1>
         <p className="mt-1 text-muted-foreground">How much you post and comment, and when. Change a number and Cadence works out the times; drag a time to move just that one.</p>
+        <p className="mt-2"><InputsLink page="/app/plan" /></p>
       </div>
       <Planner plan={plan} limits={{ postsPerWeek: PLANNER.postsPerWeekMax, commentsPerDay: PLANNER.commentsPerDayMax, quiet: [...PLANNER.quietHours] }} />
     </div>

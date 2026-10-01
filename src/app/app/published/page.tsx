@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { InputsLink } from "@/components/inputs-link";
 import { eq } from "drizzle-orm";
 import { listPublications } from "@/services/publications";
 import { asUser } from "@/db";
@@ -25,6 +26,7 @@ export default async function Published() {
         <p className="mt-1 text-muted-foreground">
           Everything Cadence has posted for you, with each post's latest numbers. Trends are on <a className="underline" href="/app/results">Results</a>.
         </p>
+        <p className="mt-2"><InputsLink page="/app/published" /></p>
         <p className="mt-1 text-sm text-muted-foreground">
           {auto ? "LinkedIn numbers are read automatically 1, 3 and 7 days after a post goes out. You can also add them by hand."
             : "LinkedIn doesn't share post numbers with Cadence yet, so add them by hand from each post's analytics. They feed Results the same way."}

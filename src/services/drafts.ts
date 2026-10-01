@@ -114,12 +114,17 @@ export async function postNow(userId: string, id: string) {
   if (!n) throw new ServiceError("conflict", "Approve the draft first.");
 }
 
+/** Clean approvals still needed before automatic posting unlocks (0 once it has). */
+export async function autoPublishLeft(tx: Tx): Promise<number> {
+  const [c] = await tx.select({ n: sql<number>`count(*)::int` }).from(drafts)
+    .where(and(inArray(drafts.status, ["scheduled", "published"]), sql`${drafts.gate}->>'verdict' = 'ok'`));
+  return Math.max(0, LIMITS.autoPublishAfter - c.n);
+}
+
 export async function setAutoPublish(userId: string, on: boolean) {
   await asUser(userId, async (tx) => {
     if (on) {
-      const [c] = await tx.select({ n: sql<number>`count(*)::int` }).from(drafts)
-        .where(and(inArray(drafts.status, ["scheduled", "published"]), sql`${drafts.gate}->>'verdict' = 'ok'`));
-      const left = LIMITS.autoPublishAfter - c.n;
+      const left = await autoPublishLeft(tx);
       if (left > 0) throw new ServiceError("forbidden", `Approve ${left} more clean draft${left > 1 ? "s" : ""} first.`);
     }
     await tx.update(profiles).set({ autoPublish: on }).where(eq(profiles.userId, userId));

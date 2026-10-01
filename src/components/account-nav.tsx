@@ -6,10 +6,10 @@ import { cn } from "@/lib/utils";
 import { UserAvatar } from "@/components/user-avatar";
 
 /** The bottom of the sidebar (top right on small screens): who's signed in, and the gear into Settings. */
-export function AccountNav({ name, avatar, className }: { name: string; avatar: string | null; className?: string }) {
+export function AccountNav({ name, avatar, className, kind }: { name: string; avatar: string | null; className?: string; kind?: { label: string; hint: string } }) {
   const active = usePathname().startsWith("/app/settings");
   return (
-    <Link href="/app/settings" aria-current={active ? "page" : undefined} aria-label="Settings" title={`${name}: Settings`} data-testid="account-nav"
+    <Link href="/app/settings" aria-current={active ? "page" : undefined} aria-label="Settings" title={kind ? `${name}: Settings (${kind.label}: ${kind.hint.toLowerCase()})` : `${name}: Settings`} data-testid="account-nav"
       className={cn("flex min-w-0 items-center gap-2 rounded-md px-2 py-2 text-sm text-muted-foreground transition-colors hover:bg-muted hover:text-foreground",
         active && "bg-muted text-foreground", className)}>
       <UserAvatar name={name} src={avatar} size="sm" decorative />

@@ -6,6 +6,7 @@ import { EXAMPLES } from "@/lib/catalog";
 import { guidance, list } from "@/services/examples";
 import { AutoRefresh } from "../auto-refresh";
 import { AddExample, ExampleCard, Teaches } from "./examples";
+import { InputsLink } from "@/components/inputs-link";
 
 export const metadata: Metadata = { title: "Examples" };
 
@@ -23,6 +24,7 @@ export default async function ExamplesPage() {
           Posts and visuals you think work, or don&apos;t. Paste a link or upload a file (up to {EXAMPLES.maxBytes / 1048576} MB), give it a thumbs up or down,
           and Cadence studies how it&apos;s built so your drafts borrow the technique, never the words.
         </p>
+        <p className="mt-2"><InputsLink page="/app/examples" /></p>
       </div>
       <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_20rem]">
         <AddExample maxMb={EXAMPLES.maxBytes / 1048576} />

@@ -10,6 +10,7 @@ import { requireDemo } from "@/lib/mode";
 import { requireUser } from "@/lib/session";
 import { PLAN, TRIAL_DAYS } from "@/lib/auth";
 import { addSampleHistory } from "@/services/sample-history";
+import { SCENARIOS, type Scenario } from "@/lib/sample-scenarios";
 
 /** Stands in for Stripe Checkout: a trialing subscription, no card, plus a demo LinkedIn connection. */
 export async function startDemoTrial(): Promise<{ ok: true } | { ok: false; error: string }> {
@@ -28,12 +29,13 @@ export async function startDemoTrial(): Promise<{ ok: true } | { ok: false; erro
   return { ok: true };
 }
 
-/** Demo only: eight weeks of sample history for the Results charts. */
-export async function seedDemoHistory(): Promise<{ ok: true } | { ok: false; error: string }> {
+/** Demo only: sample history for Results and Inputs, in one of the SCENARIOS. */
+export async function seedDemoHistory(scenario: Scenario = "steady"): Promise<{ ok: true } | { ok: false; error: string }> {
   requireDemo();
+  if (!SCENARIOS.some((s) => s.id === scenario)) return { ok: false, error: "Unknown sample history." };
   const user = await requireUser();
-  await addSampleHistory(user.id);
-  revalidatePath("/app/results");
+  await addSampleHistory(user.id, scenario);
+  for (const p of ["/app/results", "/app/inputs", "/app", "/app/plan"]) revalidatePath(p);
   return { ok: true };
 }
 
