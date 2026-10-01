@@ -180,12 +180,21 @@ See [ARCHITECTURE.md](ARCHITECTURE.md) for the generated ERD, which tables each 
 
 ## Self-hosting
 
-1. Create a LinkedIn app at <https://www.linkedin.com/developers/apps>. Add the products **Sign In with LinkedIn using OpenID Connect** and **Share on LinkedIn**, and the redirect URL `https://YOUR_DOMAIN/api/auth/callback/linkedin` (the same domain as `BETTER_AUTH_URL`). Put its Client ID and secret in `deploy/.env`: `deploy/deploy.sh` checks them with `deploy/check-env.sh` and refuses an empty or placeholder ID.
+1. Create a LinkedIn app at <https://www.linkedin.com/developers/apps>. Add the products **Sign In with LinkedIn using OpenID Connect** and **Share on LinkedIn**, and the redirect URL `https://YOUR_DOMAIN/api/auth/callback/linkedin` (the same domain as `BETTER_AUTH_URL`). Put its Client ID and secret in `deploy/.env`. Until they are real (not empty or a placeholder like `preview`), LinkedIn sign-in and publishing are hidden.
    Optional, for X: in the [X developer portal](https://developer.x.com/en/portal/dashboard), set up your app's *User authentication*: type **Web App**, permissions **Read and write**, callback `https://YOUR_DOMAIN/api/auth/callback/twitter`. Put its OAuth 2.0 Client ID and secret in `deploy/.env` as `X_CLIENT_ID` and `X_CLIENT_SECRET`. Until they're set, X shows "Not set up on this server yet" on Channels. One app posts for every user (each through their own consent); users never bring keys. Your X API plan sets how many posts and reads the app may make; Results asks for each post's numbers twice (at 24 h and 72 h).
 2. Create a Stripe product with a monthly price, plus a webhook to `https://YOUR_DOMAIN/api/auth/stripe/webhook`.
 3. On any Linux server with Docker (Cadence runs on an Oracle Cloud Always Free ARM VM): `deploy/setup-vm.sh` installs Docker, opens ports 80 and 443 and clones the repo. Point your domain's DNS at the server.
 4. Copy `deploy/env.example` to `deploy/.env` (mode 600) and fill it in; never commit it. Treat `BETTER_AUTH_SECRET` as permanent: it encrypts stored LinkedIn tokens and the OAuth signing keys, so rotating it means everyone reconnects (and you must clear the `jwks` table).
 5. `docker compose -f deploy/compose.yml --env-file deploy/.env up -d --build` runs migrations, then the web app, worker, Caddy (automatic HTTPS) and a nightly database backup. Later deploys: `CADENCE_HOST=opc@IP deploy/deploy.sh`.
+6. **Check sign-in.** `deploy/deploy.sh` runs `deploy/check-env.sh`, which prints one line per sign-in setting (never a value) and stops the deploy only when `BETTER_AUTH_URL`, `BETTER_AUTH_SECRET` or `POSTGRES_PASSWORD` would break sign-in for everyone. People need at least one way in: the LinkedIn keys, or `RESEND_API_KEY` and `EMAIL_FROM`; new accounts then need Stripe to start their trial. The same report, from inside the app's container:
+   ```bash
+   docker compose -f deploy/compose.yml --env-file deploy/.env run --rm web pnpm signin:check
+   ```
+   The server logs it at start too, and `/login` names the missing settings when nobody can sign in.
+7. **The owner can always get in**, even before LinkedIn or Resend is set up: this prints a one-time sign-in link (15 minutes, the same link email sign-in sends). `--comp` also gives that account a complimentary plan, so it skips the Stripe trial step; run it again after the first sign-in if the account was new.
+   ```bash
+   docker compose -f deploy/compose.yml --env-file deploy/.env run --rm web pnpm signin:link you@example.com --comp
+   ```
 
 ## Development
 
