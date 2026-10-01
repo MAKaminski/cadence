@@ -6,6 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { SiteFooter, SiteHeader } from "@/components/site-chrome";
 import { LinkedInButton } from "./linkedin-button";
 import { linkedinConfigured } from "@/lib/linkedin-config";
+import { missingSignInKeys } from "@/lib/setup-check";
 import { DemoButton } from "./demo-button";
 import { EmailForm } from "./email-form";
 import { isDemo } from "@/lib/mode";
@@ -52,7 +53,11 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
               <DemoButton next={next ?? undefined} />
               <p className="text-xs text-muted-foreground">Demo mode: a throwaway account with sample data. Nothing is sent to LinkedIn, Stripe or any AI service. Emailed sign-in links are printed in the server log.</p>
             </> : linkedin ? <LinkedInButton next={next ?? undefined} />
-              : !email && <p className="rounded-lg border p-3 text-sm" role="status" data-testid="signin-unavailable">Sign-in isn't set up on this server yet. The operator needs to add the LinkedIn app keys or email settings.</p>}
+              : !email && <div className="rounded-lg border p-3 text-sm" role="status" data-testid="signin-unavailable">
+                <p>Sign-in isn&apos;t set up on this server yet. The operator needs to set one of these in <code>deploy/.env</code> and redeploy:</p>
+                <ul className="mt-2 list-disc pl-5 font-mono text-xs">{missingSignInKeys(process.env).map((k) => <li key={k}>{k}</li>)}</ul>
+                <p className="mt-2 text-xs text-muted-foreground">Operator: <code>pnpm signin:check</code> on the server lists every setting; <code>pnpm signin:link you@example.com</code> signs you in meanwhile.</p>
+              </div>}
             <p className="text-xs text-muted-foreground">
               New here? Signing in creates your account. You'll add a card next for the 7-day free trial.
               By continuing you agree to the <a className="underline" href="/terms">Terms</a> and <a className="underline" href="/privacy">Privacy policy</a>.

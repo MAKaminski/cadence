@@ -4,6 +4,10 @@
 // open links to check them, and a magic-link token works exactly once, so a link that signed you in
 // on open would often be spent before you clicked it.
 
+/** Set only inside the `pnpm signin:link` process (scripts/signin-link.mts): the link is handed to it
+ *  instead of being emailed. The web server never sets it. */
+export const magicLinkSink: { take?: (link: string) => void } = {};
+
 /** Minutes an emailed sign-in link stays valid. */
 export const MAGIC_LINK_MINUTES = 15;
 

@@ -13,7 +13,8 @@ import { asUser } from "@/db";
 import { isDemo } from "@/lib/mode";
 import { specByProvider } from "@/platforms/registry";
 import { sendEmail } from "@/lib/email";
-import { MAGIC_LINK_MINUTES, confirmUrl, magicLinkEmail, safeNext } from "@/lib/magic-link";
+import { MAGIC_LINK_MINUTES, confirmUrl, magicLinkEmail, magicLinkSink, safeNext } from "@/lib/magic-link";
+import { emailConfigured } from "@/lib/setup-check";
 
 export const PLAN = "cadence";
 export const TRIAL_DAYS = 7;
@@ -29,7 +30,7 @@ export const OAUTH_SCOPES = ["cadence:read", "cadence:write", "cadence:approve"]
 
 /** Email sign-in needs an email to arrive: always on in demo mode (the link is printed to the server
  *  log), and in production only once Resend is configured. Otherwise the login page offers LinkedIn only. */
-export const emailSignIn = () => isDemo() || Boolean(process.env.RESEND_API_KEY && process.env.EMAIL_FROM);
+export const emailSignIn = () => isDemo() || emailConfigured(process.env);
 
 /** Per-key API limit: requests per window. Shown in the docs and sent as RateLimit headers. */
 export const API_LIMIT = { max: 60, windowMs: 60_000 } as const;
@@ -125,9 +126,12 @@ export const auth = betterAuth({
       storeToken: "hashed",
       rateLimit: { window: 60, max: 3 },
       sendMagicLink: async ({ email, token, url }) => {
-        if (!emailSignIn()) throw new Error("Email sign-in is not configured on this server.");
         const next = safeNext(new URL(url).searchParams.get("callbackURL"), BASE);
-        const { subject, text } = magicLinkEmail(confirmUrl(BASE, token, next));
+        const link = confirmUrl(BASE, token, next);
+        // `pnpm signin:link` (run on the server) takes the link itself instead of emailing it.
+        if (magicLinkSink.take) return magicLinkSink.take(link);
+        if (!emailSignIn()) throw new Error("Email sign-in is not configured on this server.");
+        const { subject, text } = magicLinkEmail(link);
         await sendEmail(email, subject, text);
       },
     }),

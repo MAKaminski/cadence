@@ -25,6 +25,8 @@
     "openapi": "tsx scripts/openapi.mts",
     "openapi:check": "tsx scripts/openapi.mts --check",
     "reviewer:create": "tsx scripts/reviewer.mts",
+    "signin:check": "tsx scripts/signin-check.mts",
+    "signin:link": "tsx scripts/signin-link.mts",
     "flag": "tsx scripts/flag.mts",
     "ios:api": "cd ios/Tools && swift run swift-openapi-generator generate ../../docs/openapi.json --config ../CadenceKit/Sources/CadenceAPI/openapi-generator-config.yaml --output-directory ../CadenceKit/Sources/CadenceAPI/Generated",
     "ios:gen": "pnpm ios:api && cd ios && xcodegen generate",
