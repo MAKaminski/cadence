@@ -61,3 +61,8 @@ export async function recoverLost() {
       where status = 'publishing' and created_at < now() - interval '5 minutes'`);
   });
 }
+
+/** A long job (an import) renews its lease so it isn't presumed lost while it is still working. */
+export async function touch(jobId: string) {
+  await asWorker((tx) => tx.update(jobs).set({ lockedAt: new Date() }).where(sql`${jobs.id} = ${jobId} and ${jobs.status} = 'running'`));
+}
