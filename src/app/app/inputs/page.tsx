@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { ArrowRight } from "lucide-react";
 import { requireSubscriber } from "@/lib/session";
 import { isDemo } from "@/lib/mode";
@@ -18,13 +19,15 @@ export const metadata: Metadata = { title: "Inputs" };
 export default async function InputsPage() {
   const user = await requireSubscriber();
   const { signals: s, plan, profile, channels, examplesOn } = await signals(user.id);
+  // The layout sends anyone without a finished setup to /onboarding, but Next renders this page alongside it.
+  if (!profile) redirect("/onboarding");
   const demo = isDemo();
   const shown = INPUTS.filter((i) => (!i.flag || examplesOn) && (i.only !== "annual" || s.billing));
   const head = strategy(s);
   const live = channels.filter((c) => c.status === "live");
 
   const editor = (i: InputDef) => {
-    const p = profile!;
+    const p = profile;
     switch (i.editor) {
       case "text": return <E.SetupFieldEditor id={i.id} field={i.id as "role"} label={i.label} value={p[i.id as "role"]} />;
       case "lines": {

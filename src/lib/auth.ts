@@ -36,7 +36,9 @@ export const emailSignIn = () => isDemo() || emailConfigured(process.env);
 /** Per-key API limit: requests per window. Shown in the docs and sent as RateLimit headers. */
 export const API_LIMIT = { max: 60, windowMs: 60_000 } as const;
 
-export const stripeClient = new Stripe(process.env.STRIPE_SECRET_KEY ?? "sk_test_placeholder", {
+// `||`, not `??`: deploy/.env lists every key, so an unset one arrives as "" and new Stripe("") throws while
+// this module loads, which takes down every sign-in route. The placeholder is never used to call Stripe.
+export const stripeClient = new Stripe(process.env.STRIPE_SECRET_KEY || "sk_test_placeholder", {
   apiVersion: "2026-08-26.dahlia",
 });
 
@@ -95,7 +97,9 @@ export const auth = betterAuth({
     stripe({
       stripeClient,
       stripeWebhookSecret: process.env.STRIPE_WEBHOOK_SECRET ?? "",
-      createCustomerOnSignUp: !isDemo(), // demo mode never talks to Stripe
+      // Demo mode never talks to Stripe, and neither does a server without a Stripe key yet (the customer is
+      // created at checkout instead), so sign-up doesn't call Stripe with the placeholder key.
+      createCustomerOnSignUp: !isDemo() && Boolean(process.env.STRIPE_SECRET_KEY),
       subscription: {
         enabled: true,
         plans: [{
