@@ -179,7 +179,7 @@ See [ARCHITECTURE.md](ARCHITECTURE.md) for the generated ERD, which tables each 
 
 ## Self-hosting
 
-1. Create a LinkedIn app at <https://www.linkedin.com/developers/apps>. Add the products **Sign In with LinkedIn using OpenID Connect** and **Share on LinkedIn**, and the redirect URL `https://YOUR_DOMAIN/api/auth/callback/linkedin`.
+1. Create a LinkedIn app at <https://www.linkedin.com/developers/apps>. Add the products **Sign In with LinkedIn using OpenID Connect** and **Share on LinkedIn**, and the redirect URL `https://YOUR_DOMAIN/api/auth/callback/linkedin` (the same domain as `BETTER_AUTH_URL`). Put its Client ID and secret in `deploy/.env`: `deploy/deploy.sh` checks them with `deploy/check-env.sh` and refuses an empty or placeholder ID.
 2. Create a Stripe product with a monthly price, plus a webhook to `https://YOUR_DOMAIN/api/auth/stripe/webhook`.
 3. On any Linux server with Docker (Cadence runs on an Oracle Cloud Always Free ARM VM): `deploy/setup-vm.sh` installs Docker, opens ports 80 and 443 and clones the repo. Point your domain's DNS at the server.
 4. Copy `deploy/env.example` to `deploy/.env` (mode 600) and fill it in; never commit it. Treat `BETTER_AUTH_SECRET` as permanent: it encrypts stored LinkedIn tokens and the OAuth signing keys, so rotating it means everyone reconnects (and you must clear the `jwks` table).

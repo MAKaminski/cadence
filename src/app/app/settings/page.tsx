@@ -16,6 +16,7 @@ import { apikey, oauthClient, oauthConsent } from "@/db/schema";
 import { Connections, type Connection } from "./connections";
 import { DeleteAccount } from "./delete-account";
 import { ConnectLinkedIn } from "@/components/connect-linkedin";
+import { linkedinConfigured } from "@/lib/linkedin-config";
 
 export const metadata: Metadata = { title: "Settings" };
 
@@ -53,11 +54,12 @@ export default async function Settings() {
           <CardTitle>LinkedIn connection</CardTitle>
           <CardDescription>
             {demo ? "Demo mode: posts are recorded here, never sent to LinkedIn."
+              : !linkedinConfigured() ? "Publishing to LinkedIn isn't set up on this server yet. Drafting works; nothing can be published until it is."
               : !s.conn ? "Not connected. Connect LinkedIn so Cadence can publish the posts you approve; drafting works without it."
               : `${s.conn.status === "active" ? "Connected" : s.conn.status === "expiring" ? "Ending soon" : "Disconnected"}${s.conn.expiresAt ? ` · renew before ${s.conn.expiresAt.toDateString()}` : ""}.`}
           </CardDescription>
         </CardHeader>
-        {!demo && <CardContent><ConnectLinkedIn label={s.conn ? "Reconnect LinkedIn" : "Connect LinkedIn"} /></CardContent>}
+        {!demo && linkedinConfigured() && <CardContent><ConnectLinkedIn label={s.conn ? "Reconnect LinkedIn" : "Connect LinkedIn"} /></CardContent>}
       </Card>
       <Card id="assistants">
         <CardHeader>

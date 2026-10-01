@@ -15,6 +15,7 @@ import Link from "next/link";
 import { isDemo } from "@/lib/mode";
 import { PERSONA } from "@/lib/demo-persona";
 import { ConnectLinkedIn } from "@/components/connect-linkedin";
+import { linkedinConfigured } from "@/lib/linkedin-config";
 
 export const metadata: Metadata = { title: "This week" };
 
@@ -55,9 +56,10 @@ export default async function ThisWeek() {
       </div>
 
       {!data.connected && !isDemo() && <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border p-3 text-sm" data-testid="connect-linkedin">
-        <p>Connect LinkedIn to publish what you approve. Drafting works without it.</p><ConnectLinkedIn back="/app" variant="default" /></div>}
+        {linkedinConfigured() ? <><p>Connect LinkedIn to publish what you approve. Drafting works without it.</p><ConnectLinkedIn back="/app" variant="default" /></>
+          : <p>Publishing to LinkedIn isn't set up on this server yet. Drafting works; nothing can be published until it is.</p>}</div>}
       {data.connected && data.expiresSoon && <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900 dark:bg-amber-950 dark:text-amber-100">
-        <p>Your LinkedIn connection ends soon. Renew it to keep posting.</p><ConnectLinkedIn label="Renew" back="/app" /></div>}
+        <p>Your LinkedIn connection ends soon. Renew it to keep posting.</p>{linkedinConfigured() && <ConnectLinkedIn label="Renew" back="/app" />}</div>}
       {data.spent >= LIMITS.monthlyCapUsd && <p className="rounded-lg border p-3 text-sm">This month's drafting allowance is used up (${LIMITS.monthlyCapUsd}). Scheduled posts still go out; new drafts resume on the 1st.</p>}
       {data.lastFailed?.status === "failed" && data.lastFailed.error && !drafting && <p className="rounded-lg border border-red-300 p-3 text-sm text-red-700">Drafting stopped: {data.lastFailed.error}</p>}
 
