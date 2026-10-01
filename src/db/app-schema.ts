@@ -107,7 +107,7 @@ export const metrics = pgTable("metrics", {
 export const jobs = pgTable("jobs", {
   id: uuid("id").primaryKey().defaultRandom(),
   userId: owner(),
-  kind: text("kind", { enum: ["draft", "publish", "metrics", "remind_checkin", "remind_expiry", "analyze_example"] }).notNull(),
+  kind: text("kind", { enum: ["draft", "publish", "metrics", "remind_checkin", "remind_expiry", "analyze_example", "import_history"] }).notNull(),
   refId: uuid("ref_id"),
   runAt: timestamp("run_at", { withTimezone: true }).notNull(),
   status: text("status", { enum: ["queued", "running", "done", "failed"] }).notNull().default("queued"),
@@ -234,3 +234,62 @@ export const usageEvents = pgTable("usage_events", {
   meta: jsonb("meta").notNull().default({}),
   createdAt: created(),
 }, (t) => [index("usage_events_feature").on(t.feature, t.createdAt), index("usage_events_user").on(t.userId, t.createdAt), tenant("usage_events")]).enableRLS();
+
+// ---------------------------------------------------------------------------------------------
+// AI history import: a ChatGPT or Claude export (the .zip, or its conversations.json) uploaded in 4 MB
+// chunks, read by the worker as a stream, and boiled down to suggestions the person accepts or
+// dismisses. The raw file is deleted as soon as it has been read. Only the person's own messages are
+// kept, deduplicated, never the assistant's replies. Deleting an import deletes everything below it.
+
+/** One upload: its progress through upload -> read -> distil, what was found, and what it cost. */
+export const historyImports = pgTable("history_imports", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  userId: owner(),
+  source: text("source", { enum: ["chatgpt", "claude"] }).notNull(),
+  fileName: text("file_name").notNull(),
+  bytes: integer("bytes").notNull(),
+  chunkBytes: integer("chunk_bytes").notNull(),
+  chunks: integer("chunks").notNull(),
+  status: text("status", { enum: ["uploading", "queued", "reading", "distilling", "ready", "failed"] }).notNull().default("uploading"),
+  /** { stage, done, total } for the progress bar while the worker runs. */
+  progress: jsonb("progress").notNull().default({}),
+  /** What was found: conversations, messages, kept, duplicates, skipped, batches, notes. */
+  stats: jsonb("stats").notNull().default({}),
+  costUsd: numeric("cost_usd", { precision: 10, scale: 6 }).notNull().default("0"),
+  error: text("error"),
+  createdAt: created(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  finishedAt: timestamp("finished_at", { withTimezone: true }),
+}, (t) => [index("history_imports_user").on(t.userId, t.createdAt), tenant("history_imports")]).enableRLS();
+
+/** The uploaded file while it is being read, in order. Deleted once the worker has read it. */
+export const historyChunks = pgTable("history_chunks", {
+  importId: uuid("import_id").notNull().references(() => historyImports.id, { onDelete: "cascade" }),
+  userId: owner(),
+  idx: integer("idx").notNull(),
+  data: bytea("data").notNull(),
+}, (t) => [primaryKey({ columns: [t.importId, t.idx] }), tenant("history_chunks")]).enableRLS();
+
+/** One message the person wrote (never the assistant's), once per person however often it appears. */
+export const historyMessages = pgTable("history_messages", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  userId: owner(),
+  importId: uuid("import_id").notNull().references(() => historyImports.id, { onDelete: "cascade" }),
+  conversation: text("conversation"),                   // the export's conversation title, capped
+  sentAt: timestamp("sent_at", { withTimezone: true }),
+  body: text("body").notNull(),                          // capped; see IMPORT.messageChars
+  hash: text("hash").notNull(),                          // of the normalised text, for deduplication
+}, (t) => [uniqueIndex("history_messages_once").on(t.userId, t.hash), index("history_messages_import").on(t.importId), tenant("history_messages")]).enableRLS();
+
+/** Something the import suggests adding to the profile. Nothing is applied until the person accepts it. */
+export const historySuggestions = pgTable("history_suggestions", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  userId: owner(),
+  importId: uuid("import_id").notNull().references(() => historyImports.id, { onDelete: "cascade" }),
+  kind: text("kind", { enum: ["fact", "topic", "voice", "no_go", "idea"] }).notNull(),
+  body: text("body").notNull(),
+  evidence: text("evidence"),                            // the person's own words it came from, short
+  status: text("status", { enum: ["pending", "accepted", "dismissed"] }).notNull().default("pending"),
+  createdAt: created(),
+  decidedAt: timestamp("decided_at", { withTimezone: true }),
+}, (t) => [index("history_suggestions_import").on(t.importId, t.kind), tenant("history_suggestions")]).enableRLS();

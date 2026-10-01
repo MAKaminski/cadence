@@ -50,6 +50,28 @@ export const EXAMPLES = {
   bodyChars: 4000,
 } as const;
 
+/** AI history import (src/services/history.ts): how big an export can be, and how much of it the
+ *  model reads. Everything the person wrote is kept and counted; only a sample goes to the model. */
+export const IMPORT = {
+  /** Largest export accepted, zipped or not. */
+  maxBytes: 1024 * 1024 * 1024,
+  /** Upload chunk size: under the 10 MB a request body may be buffered to. */
+  chunkBytes: 4 * 1024 * 1024,
+  /** One conversation larger than this, unzipped, is refused as malformed. */
+  maxConversationBytes: 64 * 1024 * 1024,
+  /** Characters kept per message (long pastes are cut). */
+  messageChars: 4000,
+  /** Characters of each chosen message the model sees. */
+  excerptChars: 800,
+  /** The model reads at most this many batches of this many characters (map), then one merge (reduce). */
+  maxBatches: 8,
+  batchChars: 32_000,
+  /** Most suggestions of each kind one import makes. */
+  maxFacts: 20, maxTopics: 10, maxVoice: 3, maxNoGo: 8, maxIdeas: 10,
+  /** An upload left unfinished this long is deleted, file and all. */
+  abandonHours: 24,
+} as const;
+
 /** Openers and phrases that read as machine-written. A hit means one rewrite. */
 export const BANNED_PHRASES = [
   "in today's fast-paced world", "game-changer", "game changer", "let that sink in", "unlock the power",
@@ -88,6 +110,7 @@ export const ROUTINES: (Item & { when: string })[] = [
   { name: "Quality check", when: "Every draft", what: `Hook under ${LIMITS.hookChars} characters, under ${LIMITS.targetChars} characters overall, no stock phrases. A miss means one rewrite.` },
   { name: "Fact check", when: "Every draft", what: "Every number, company and credential must come from your facts list or this week's notes. Otherwise the draft is held for you." },
   { name: "Repeat and no-go check", when: "Every draft", what: `Holds a draft that mentions a never-write-about item or is ${Math.round(LIMITS.repeatSimilarity * 100)}%+ similar to one of your last ${LIMITS.repeatLookback} posts.` },
+  { name: "AI history import", when: "After you upload a ChatGPT or Claude export", what: `Reads the export as a stream (up to ${IMPORT.maxBytes / 1073741824} GB), keeps only the messages you wrote, once each, and suggests facts, topics, voice samples, never-write-about items and post ideas. Nothing joins your profile until you accept it; the uploaded file is deleted once read.` },
   { name: "Monthly cost cap", when: "Before every model call", what: `Stops drafting at $${LIMITS.monthlyCapUsd} of model use in a month and tells you, instead of charging more.` },
   { name: "Scheduling", when: "On approval", what: "Puts the post into your next free posting slot, in your time zone." },
   { name: "Planning", when: "When you change a number on Plan", what: `One more post or comment goes where it does the least harm (the widest gap, never on the hour); one fewer comes out of the most crowded spot. Nothing is planned between ${PLANNER.quietHours[0]} and ${PLANNER.quietHours[1]}.` },
