@@ -94,7 +94,11 @@ export const auth = betterAuth({
       createCustomerOnSignUp: !isDemo(), // demo mode never talks to Stripe
       subscription: {
         enabled: true,
-        plans: [{ name: PLAN, priceId: process.env.STRIPE_PRICE_ID ?? "", freeTrial: { days: TRIAL_DAYS } }],
+        plans: [{
+          name: PLAN, priceId: process.env.STRIPE_PRICE_ID ?? "", freeTrial: { days: TRIAL_DAYS },
+          // Optional yearly price at 20% off (Settings → Billing offers the switch only when it's set).
+          ...(process.env.STRIPE_ANNUAL_PRICE_ID ? { annualDiscountPriceId: process.env.STRIPE_ANNUAL_PRICE_ID } : {}),
+        }],
       },
     }),
     // Keys for the public API and CLI. Scopes and limits are set server-side only (src/lib/api-keys.ts).

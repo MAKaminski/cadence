@@ -215,6 +215,19 @@ export const exampleMedia = pgTable("example_media", {
   data: bytea("data").notNull(),
 }, () => [tenant("example_media")]).enableRLS();
 
+// ---------------------------------------------------------------------------------------------
+// Profile photo. Without a row here the app shows the LinkedIn picture (Better Auth's `user.image`);
+// a photo uploaded in Settings replaces it, re-encoded server-side as a small square WebP (which also
+// drops any EXIF location). Deleting the row is "Use my LinkedIn photo".
+
+export const userAvatars = pgTable("user_avatars", {
+  userId: owner().primaryKey(),
+  mime: text("mime").notNull(),
+  bytes: integer("bytes").notNull(),
+  data: bytea("data").notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+}, () => [tenant("user_avatars")]).enableRLS();
+
 /** Feature flags. Global, so no user_id: read and changed by the server and `pnpm flag`, never by a user. */
 export const featureFlags = pgTable("feature_flags", {
   key: text("key").primaryKey(),

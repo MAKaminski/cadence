@@ -437,6 +437,13 @@ erDiagram
     jsonb meta
     timestamp_with_time_zone created_at
   }
+  user_avatars {
+    text user_id PK
+    text mime
+    integer bytes
+    bytea data
+    timestamp_with_time_zone updated_at
+  }
   user ||--o{ account : "user_id"
   oauth_client ||--o{ oauth_access_token : "client_id"
   session ||--o{ oauth_access_token : "session_id"
@@ -471,5 +478,6 @@ erDiagram
   drafts ||--o{ publications : "draft_id"
   user ||--o{ schedules : "user_id"
   user ||--o{ usage_events : "user_id"
+  user ||--o{ user_avatars : "user_id"
 ```
 <!-- ERD:END -->

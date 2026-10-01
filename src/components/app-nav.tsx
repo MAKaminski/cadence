@@ -1,15 +1,16 @@
 "use client";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { BarChart3, CalendarClock, Gauge, PenLine, Radio, Send, Settings, Sparkles } from "lucide-react";
+import { BarChart3, CalendarClock, Gauge, PenLine, Radio, Send, Sparkles } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-/** The signed-in app's sections, grouped by what you're doing: writing, growing, your account. */
+/** The signed-in app's sections, grouped by what you're doing: writing, growing, your account.
+ *  Settings is the gear at the bottom of the sidebar (account-nav.tsx), not a section. */
 /** Items marked `flag` show only when that feature is on for the person; `admin` only for operators. */
 export const SECTIONS = [
   { group: "Write", items: [{ href: "/app", label: "This week", icon: PenLine }, { href: "/app/published", label: "Published", icon: Send }] },
   { group: "Grow", items: [{ href: "/app/plan", label: "Plan", icon: CalendarClock }, { href: "/app/examples", label: "Examples", icon: Sparkles, flag: "examples" }, { href: "/app/results", label: "Results", icon: BarChart3 }] },
-  { group: "Account", items: [{ href: "/app/channels", label: "Channels", icon: Radio }, { href: "/app/settings", label: "Settings", icon: Settings }, { href: "/app/admin/usage", label: "Usage", icon: Gauge, admin: true }] },
+  { group: "Account", items: [{ href: "/app/channels", label: "Channels", icon: Radio }, { href: "/app/admin/usage", label: "Usage", icon: Gauge, admin: true }] },
 ] as const;
 
 type Item = { href: string; label: string; icon: typeof PenLine; flag?: string; admin?: boolean };

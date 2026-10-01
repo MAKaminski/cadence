@@ -18,6 +18,7 @@ const live = core.extend({
   STRIPE_SECRET_KEY: z.string().startsWith("sk_"),
   STRIPE_WEBHOOK_SECRET: z.string().startsWith("whsec_"),
   STRIPE_PRICE_ID: z.string().startsWith("price_"),
+  STRIPE_ANNUAL_PRICE_ID: z.union([z.literal(""), z.string().startsWith("price_")]).optional(), // empty: no annual offer
   ANTHROPIC_API_KEY: z.string().min(1),
 });
 
