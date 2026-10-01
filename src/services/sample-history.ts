@@ -75,11 +75,12 @@ export async function addSampleHistory(userId: string, scenario: Scenario = "ste
     // ease: two good posts a week in weeks 8–5, then one softer post a week against a target of 3.
     for (const w of [8, 7, 6, 5]) for (const dow of [1, 2]) await post(tx, userId, at(w, dow), { opener: OPENERS[(w + dow) % OPENERS.length], angle: ANGLES[dow], rate: 0.04 });
     for (const w of [4, 3, 2, 1]) await post(tx, userId, at(w, 1), { opener: OPENERS[w], angle: ANGLES[0], rate: 0.02 });
-    // This month: three drafts approved after an edit (posted last Thursday, so this week stays empty), two
-    // drafts held for a claim not in the facts, Opus at 86% of the allowance, and posting paused.
+    // This month: three drafts approved after an edit (posted 5 weeks back, outside the 4 weeks the posting
+    // rule reads, and without numbers, so neither the average nor the engagement trend moves), two drafts
+    // held for a claim not in the facts, Opus at 86% of the allowance, and posting paused.
     const { drafts, holds, llmUsage, profiles } = await import("@/db/schema");
     const today = new Date(now);
-    for (let i = 0; i < 3; i++) await post(tx, userId, at(1, 3), { opener: OPENERS[3 + i], angle: ANGLES[0], rate: null, version: 2, draftedAt: today });
+    for (let i = 0; i < 3; i++) await post(tx, userId, at(5, 3), { opener: OPENERS[3 + i], angle: ANGLES[0], rate: null, version: 2, draftedAt: today });
     for (let i = 0; i < 2; i++) await tx.insert(drafts).values({
       userId, platform: "linkedin", status: "held", createdAt: today, body: bodyOf("We cut month-end close from 12 days to 3.", 4),
       gate: gate(ANGLES[0], "Sample history (demo): held for a claim not in your facts.", "held", [{ id: "facts", label: "Facts", outcome: "held", detail: "“12 days to 3” isn't in your facts list" }]),

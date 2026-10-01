@@ -89,7 +89,7 @@ const url = process.env.TEST_DATABASE_URL;
     }));
     await seed.addSampleHistory(U, scenario);
     const sig = (await inputs.signals(U)).signals;
-    return { strategy: strategy(sig).direction, of: (k: Parameters<typeof advise>[0]) => advise(k, sig).direction };
+    return { strategy: strategy(sig).direction, of: (k: Parameters<typeof advise>[0]) => advise(k, sig).direction, reason: (k: Parameters<typeof advise>[0]) => advise(k, sig).reason };
   }
 
   it("ready to grow: more posts and a Monday slot", async () => {
@@ -103,6 +103,7 @@ const url = process.env.TEST_DATABASE_URL;
     const d = await directions("ease");
     expect(d.strategy).toBe("decrease");
     expect([d.of("postsPerWeek"), d.of("model")]).toEqual(["decrease", "decrease"]);
+    expect(d.reason("postsPerWeek")).toMatch(/published 1\.0 a week against 3/); // the edited posts sit outside the 4 weeks
     expect([d.of("facts"), d.of("voiceSamples"), d.of("topics"), d.of("pause")]).toEqual(["increase", "increase", "increase", "increase"]);
   });
 });
