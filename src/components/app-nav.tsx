@@ -82,7 +82,7 @@ export function AppNav({ access = { flags: [], admin: false }, account }: { acce
     <nav aria-label="App" className="flex flex-wrap items-center gap-x-3 gap-y-1.5 md:flex-1 md:flex-col md:flex-nowrap md:items-stretch md:gap-5">
       {SECTIONS.map((s) => (
         <div key={s.kind} role="group" aria-labelledby={`nav-${s.kind}`} className={cn("flex items-center gap-1 md:flex-col md:items-stretch", s.kind === "act" && "basis-full md:basis-auto")}>
-          <p id={`nav-${s.kind}`} className="flex w-20 shrink-0 md:w-auto md:px-1 md:pb-1">
+          <p id={`nav-${s.kind}`} className="flex w-28 shrink-0 md:w-auto md:px-1 md:pb-1">
             <KindLabel kind={s.kind} /><span className="sr-only">: {KINDS[s.kind].hint}</span>
           </p>
           {s.items.filter(shown).map((i) => (

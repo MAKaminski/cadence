@@ -56,21 +56,3 @@ export async function switchDemoToAnnual(): Promise<{ ok: true } | { ok: false; 
   revalidatePath("/app/settings");
   return { ok: true };
 }
-
-/** Stands in for Stripe's "switch to annual" confirmation: the subscription becomes yearly. A trial keeps
- *  its end date (the first yearly charge would fall then); a paid plan starts a new year today. */
-export async function switchDemoToAnnual(): Promise<{ ok: true } | { ok: false; error: string }> {
-  requireDemo();
-  const user = await requireUser();
-  const mine = and(eq(subscription.referenceId, user.id), inArray(subscription.status, ["trialing", "active"]));
-  const [s] = await db.select().from(subscription).where(mine).limit(1);
-  if (!s) return { ok: false, error: "There's no subscription to switch." };
-  if (s.billingInterval === "year") return { ok: false, error: "You're already billed annually." };
-  const now = new Date();
-  await db.update(subscription).set(s.status === "trialing"
-    ? { billingInterval: "year" }
-    : { billingInterval: "year", periodStart: now, periodEnd: new Date(new Date(now).setFullYear(now.getFullYear() + 1)) })
-    .where(eq(subscription.id, s.id));
-  revalidatePath("/app/settings");
-  return { ok: true };
-}
