@@ -20,6 +20,21 @@ export const LIMITS = {
   variants: 2,
 } as const;
 
+/** The planner's limits (src/engine/plan.ts). Times are the user's own. */
+export const PLANNER = {
+  /** Three posting slots a day, seven days. */
+  postsPerWeekMax: 21,
+  /** A hard ceiling on comment runs a day: past this LinkedIn reads an account as automated. */
+  commentsPerDayMax: 40,
+  /** Nothing is planned between these times. */
+  quietHours: ["22:00", "06:00"] as const,
+  /** Default posting slot times; slot A takes the time chosen in setup. */
+  slotTimes: { A: "09:00", B: "12:30", C: "17:30" } as const,
+  /** Default comment window and spacing. */
+  commentWindow: ["08:00", "18:00"] as const,
+  commentGapMinutes: 20,
+} as const;
+
 /** Openers and phrases that read as machine-written. A hit means one rewrite. */
 export const BANNED_PHRASES = [
   "in today's fast-paced world", "game-changer", "game changer", "let that sink in", "unlock the power",
@@ -37,9 +52,9 @@ export const SETUP: Item[] = [
   { name: "Three of your posts", what: "Teach your voice: sentence length, tone, what you never say." },
   { name: "Topics", what: "What you want to be known for. Drafts stay inside these." },
   { name: "Never write about", what: "Names, subjects or employers that must not appear. A match holds the draft." },
-  { name: "Posts per week", what: "1 to 5." },
+  { name: "Posts per week", what: `1 to 5 in setup; up to ${PLANNER.postsPerWeekMax} on Plan, across three daily slots.` },
   { name: "Posting days", what: "Which weekdays posts go out." },
-  { name: "Time of day", what: "In your own time zone." },
+  { name: "Time of day", what: "In your own time zone. On Plan, each slot has its own time; drag it on the day view to move it." },
   { name: "Writing model", what: "Claude Sonnet 5 (default) or Claude Opus 5." },
   { name: "Automatic posting", what: `Off by default. Unlocks after ${LIMITS.autoPublishAfter} clean approvals; any held check still waits for you.` },
 ];
@@ -60,6 +75,8 @@ export const ROUTINES: (Item & { when: string })[] = [
   { name: "Repeat and no-go check", when: "Every draft", what: `Holds a draft that mentions a never-write-about item or is ${Math.round(LIMITS.repeatSimilarity * 100)}%+ similar to one of your last ${LIMITS.repeatLookback} posts.` },
   { name: "Monthly cost cap", when: "Before every model call", what: `Stops drafting at $${LIMITS.monthlyCapUsd} of model use in a month and tells you, instead of charging more.` },
   { name: "Scheduling", when: "On approval", what: "Puts the post into your next free posting slot, in your time zone." },
+  { name: "Planning", when: "When you change a number on Plan", what: `One more post or comment goes where it does the least harm (the widest gap, never on the hour); one fewer comes out of the most crowded spot. Nothing is planned between ${PLANNER.quietHours[0]} and ${PLANNER.quietHours[1]}.` },
+  { name: "Pause", when: "While posting is paused on Plan", what: "Approved posts keep their place and wait; nothing is published until you resume." },
   { name: "Publishing", when: "At the scheduled time", what: "Posts the exact approved text through LinkedIn's official API, once. A post that might have gone out is marked for review, never retried." },
   { name: "Results check", when: "24 and 72 hours after each post", what: "Records impressions, reactions, comments and reshares for the Results charts. Starts once LinkedIn approves analytics access; until then the charts say so." },
   { name: "Check-in reminder", when: "The day before your first posting day", what: "An email if you haven't checked in that week." },

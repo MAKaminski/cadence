@@ -49,3 +49,43 @@ export function nextSlots(c: Cadence, now: Date, taken: Date[], n = 1, leadMinut
   }
   return out;
 }
+
+/** A daily posting slot from the planner: a time and the days it is on (Mon..Sun mask, "1111100"). */
+export type Slot = { time: string; days: string };
+const MON_FIRST = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+
+/** The planner's slots as the single-slot cadence older callers expect (the API's `profile.cadence`). */
+export function cadenceFromSlots(slots: Slot[], tz: string): Cadence {
+  const on = slots.filter((s) => s.days.includes("1")).sort((a, b) => a.time.localeCompare(b.time));
+  const days = MON_FIRST.filter((_, i) => on.some((s) => s.days[i] === "1"));
+  const perWeek = on.reduce((n, s) => n + [...s.days].filter((c) => c === "1").length, 0);
+  return { perWeek, days, time: on[0]?.time ?? "09:00", tz };
+}
+
+/** The next `n` free times across several daily slots (at least `leadMinutes` out). A week holds at
+ *  most as many posts as the slots have days switched on, counting posts already scheduled. */
+export function nextSlotTimes(slots: Slot[], tz: string, now: Date, taken: Date[], n = 1, leadMinutes = 15): Date[] {
+  const cap = slots.reduce((k, s) => k + [...s.days].filter((c) => c === "1").length, 0);
+  if (!cap) return [];
+  const perWeek = new Map<string, number>();
+  for (const t of taken) perWeek.set(weekKey(t, tz), (perWeek.get(weekKey(t, tz)) ?? 0) + 1);
+  const takenMs = new Set(taken.map((t) => t.getTime()));
+  const out: Date[] = [];
+  const start = parts(now, tz);
+  for (let i = 0; i < 60 && out.length < n; i++) {
+    const day = new Date(Date.UTC(start.y, start.m - 1, start.d + i));
+    const dow = (day.getUTCDay() + 6) % 7;                    // Monday = 0
+    const times = slots.filter((s) => s.days[dow] === "1").map((s) => s.time).sort();
+    for (const t of times) {
+      if (out.length >= n) break;
+      const [h, min] = t.split(":").map(Number);
+      const slot = zoned(day.getUTCFullYear(), day.getUTCMonth() + 1, day.getUTCDate(), h, min, tz);
+      if (slot.getTime() < now.getTime() + leadMinutes * 60_000 || takenMs.has(slot.getTime())) continue;
+      const k = weekKey(slot, tz);
+      if ((perWeek.get(k) ?? 0) >= cap) continue;
+      perWeek.set(k, (perWeek.get(k) ?? 0) + 1);
+      out.push(slot);
+    }
+  }
+  return out;
+}

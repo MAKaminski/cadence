@@ -295,6 +295,17 @@ erDiagram
     jsonb input_ids
     timestamp_with_time_zone created_at
   }
+  engine_settings {
+    text user_id PK
+    jsonb volume
+    timestamp_with_time_zone updated_at
+  }
+  holds {
+    text user_id
+    text name
+    text reason
+    timestamp_with_time_zone set_at
+  }
   inputs {
     uuid id PK
     text user_id
@@ -370,6 +381,19 @@ erDiagram
     timestamp_with_time_zone published_at
     timestamp_with_time_zone created_at
   }
+  schedules {
+    uuid id PK
+    text user_id
+    text key
+    text family
+    text slot
+    text local_time
+    text days
+    text mode
+    text executor
+    text note
+    timestamp_with_time_zone updated_at
+  }
   user ||--o{ account : "user_id"
   oauth_client ||--o{ oauth_access_token : "client_id"
   session ||--o{ oauth_access_token : "session_id"
@@ -387,6 +411,8 @@ erDiagram
   user ||--o{ devices : "user_id"
   user ||--o{ drafts : "user_id"
   platform_accounts ||--o{ drafts : "platform_account_id"
+  user ||--o{ engine_settings : "user_id"
+  user ||--o{ holds : "user_id"
   user ||--o{ inputs : "user_id"
   user ||--o{ jobs : "user_id"
   user ||--o{ llm_usage : "user_id"
@@ -397,5 +423,6 @@ erDiagram
   user ||--o{ profiles : "user_id"
   user ||--o{ publications : "user_id"
   drafts ||--o{ publications : "draft_id"
+  user ||--o{ schedules : "user_id"
 ```
 <!-- ERD:END -->

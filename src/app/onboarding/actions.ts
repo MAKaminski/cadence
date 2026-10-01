@@ -3,6 +3,7 @@ import type { z } from "zod";
 import { profiles } from "@/db/schema";
 import { requireSubscriber } from "@/lib/session";
 import { aboutSchema, lines, rhythmSchema, saveProfile, voiceSchema } from "@/services/profile";
+import { resetPostingFromCadence } from "@/services/plan";
 
 type Result = { ok: true } | { ok: false; error: string };
 
@@ -30,5 +31,8 @@ export async function saveRhythm(input: z.input<typeof rhythmSchema>): Promise<R
   const p = rhythmSchema.safeParse(input);
   if (!p.success) return { ok: false, error: firstError(p.error) };
   const { model, ...cadence } = p.data;
-  return save(3, { cadence, model });
+  const r = await save(3, { cadence, model });
+  // Setup's rhythm is one posting slot; the planner holds the full picture and starts from it.
+  if (r.ok) await resetPostingFromCadence((await requireSubscriber()).id);
+  return r;
 }

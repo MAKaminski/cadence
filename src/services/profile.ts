@@ -4,6 +4,7 @@ import { z } from "zod";
 import { eq, sql } from "drizzle-orm";
 import { asUser } from "@/db";
 import { profiles } from "@/db/schema";
+import { resetPostingFromCadence } from "./plan";
 
 export const lines = (s: string) => s.split("\n").map((l) => l.trim()).filter(Boolean);
 export const DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"] as const;
@@ -78,5 +79,6 @@ export async function patchProfile(userId: string, patch: z.infer<typeof profile
   if (patch.cadence) values.cadence = patch.cadence;
   if (patch.model) values.model = patch.model;
   await saveProfile(userId, values);
+  if (patch.cadence) await resetPostingFromCadence(userId);
   return getProfile(userId);
 }

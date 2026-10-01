@@ -8,6 +8,7 @@ import { approveInTx } from "@/lib/drafting";
 import { evaluate } from "@/engine/evaluate";
 import { LIMITS } from "@/lib/catalog";
 import type { GateRecord } from "@/engine/types";
+import { isPaused } from "./plan";
 import { ServiceError } from "./errors";
 
 type Tx = Parameters<Parameters<typeof asUser>[1]>[0];
@@ -103,6 +104,7 @@ export async function skipDraft(userId: string, id: string): Promise<DraftOut> {
 export async function postNow(userId: string, id: string) {
   const now = new Date();
   const n = await asUser(userId, async (tx) => {
+    if (await isPaused(tx)) throw new ServiceError("conflict", "Posting is paused. Resume it on Plan first.");
     const r = await tx.update(jobs).set({ runAt: now }).where(and(eq(jobs.refId, id), eq(jobs.kind, "publish"), eq(jobs.status, "queued"))).returning({ id: jobs.id });
     if (r.length) await tx.update(drafts).set({ scheduledFor: now }).where(eq(drafts.id, id));
     return r.length;

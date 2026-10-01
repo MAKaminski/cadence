@@ -5,6 +5,13 @@ All notable changes to Cadence. The format follows [Keep a Changelog](https://ke
 ## [Unreleased]
 
 ### Added
+- **Plan** (`/app/plan`): how much you post and comment, and when, per user.
+  - **Posts a week**, 0–21: a stepper shows what one more or one fewer would change before you apply it, across three daily slots (A, B, C). Each slot has its own time and days, and a cell turns one slot on or off for one day. Approved posts go into the next free slot of any slot that's on.
+  - **Comments a day**, 0–40, inside a window you set and at least N minutes apart. One more goes in the widest gap, never on the hour; one fewer comes out of the most crowded spot; "Space them evenly" re-spaces them. These are plans for the optional Cadence runner and nothing runs them yet.
+  - **Your day**: every post slot and comment run on one timeline. Drag one, or use the arrow keys, to move just that one. Quiet hours (22:00–06:00) are never used.
+  - **Pause**: approved posts keep their place and wait; Post now is refused until you resume.
+  - Built on the LinkedIn engine's volume planner (`src/engine/plan.ts`, ported with its tests) and three new per-user tables with row-level security: `schedules`, `holds`, `engine_settings`.
+- The signed-in app has a sidebar: Write (This week, Published), Grow (Plan, Results), Account (Settings). On a phone it is a row of links.
 - **Sign up and sign in with email.** The login page offers an emailed link (Better Auth magic link, sent through Resend) before "Continue with LinkedIn". The link opens a confirm page, so a mail scanner can't use it up; it works once, expires in 15 minutes, and the token is stored hashed. Offered only when `RESEND_API_KEY` and `EMAIL_FROM` are set (always in demo mode, where the email is printed).
 - **Connect LinkedIn from inside the app.** Email accounts connect LinkedIn (needed to publish) from a banner on This week or from Settings, through account linking; the same button renews an expiring connection.
 - **Cadence for iOS** (`ios/`): SwiftUI app for iOS 26+ with OAuth sign-in (dynamic registration, PKCE, refresh), This week, draft detail with the "why" sheet, edit, approve (confirms the exact text), skip, check-in with on-device voice (SpeechAnalyzer), Results in Swift Charts, Settings with account deletion, US web-checkout link-out and web setup in the same secure browser session, push registration and routing, and a "This week" widget.
@@ -14,6 +21,9 @@ All notable changes to Cadence. The format follows [Keep a Changelog](https://ke
 
 ### Fixed
 - Sign-in names the app being connected instead of "your AI assistant".
+
+### Changed
+- Setup's posting rhythm becomes slot A on Plan for existing users, the first time Plan or an approval needs it. Editing the rhythm in setup resets slot A to it and turns the other slots off. `profile.cadence` in the API is now a summary of the posting slots.
 
 ## [0.6.0] - 2026-09-27
 
