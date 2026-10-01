@@ -20,6 +20,7 @@ All notable changes to Cadence. The format follows [Keep a Changelog](https://ke
 - iOS CI workflow (path-filtered), App Store submission pack (`docs/ios-app-store.md`), privacy manifest.
 
 ### Fixed
+- A missing or placeholder LinkedIn client ID (e.g. `preview`) no longer sends people to LinkedIn's error page ("The passed in client_id is invalid"). LinkedIn sign-in and Connect are hidden, with a plain note, until real keys are set; the server logs what to fix at start, and `deploy/deploy.sh` refuses to deploy with a placeholder (`deploy/check-env.sh`).
 - Sign-in names the app being connected instead of "your AI assistant".
 
 ### Changed

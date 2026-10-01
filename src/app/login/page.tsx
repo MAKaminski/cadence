@@ -5,6 +5,7 @@ import { auth, emailSignIn } from "@/lib/auth";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { SiteFooter, SiteHeader } from "@/components/site-chrome";
 import { LinkedInButton } from "./linkedin-button";
+import { linkedinConfigured } from "@/lib/linkedin-config";
 import { DemoButton } from "./demo-button";
 import { EmailForm } from "./email-form";
 import { isDemo } from "@/lib/mode";
@@ -23,6 +24,8 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
   const session = await auth.api.getSession({ headers: await headers() });
   if (session && !connecting) redirect(next ?? "/app");
   const email = emailSignIn();
+  // A placeholder LinkedIn app ID would send people to LinkedIn's error page: offer only what works.
+  const linkedin = linkedinConfigured();
   const linkFailed = q.error === "link" || q.error === "INVALID_TOKEN" || q.error === "EXPIRED_TOKEN";
   const clientId = typeof q.client_id === "string" ? q.client_id : "";
   const [client] = connecting && clientId ? await db.select({ name: oauthClient.name }).from(oauthClient).where(eq(oauthClient.clientId, clientId)) : [];
@@ -34,7 +37,8 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
           <CardHeader>
             <CardTitle className="text-xl">Sign in to Cadence</CardTitle>
             <CardDescription>
-              {email ? "Use your email, or your LinkedIn account. To publish, Cadence needs LinkedIn connected; you can do that during setup."
+              {email && !linkedin && !isDemo() ? "Sign in with your email. Cadence emails you a one-time link."
+                : email ? "Use your email, or your LinkedIn account. To publish, Cadence needs LinkedIn connected; you can do that during setup."
                 : "Cadence uses your LinkedIn account to sign you in and, once you approve a post, to publish it. LinkedIn will ask you to allow both."}
             </CardDescription>
           </CardHeader>
@@ -43,11 +47,12 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
             {connecting && !session && <p className="rounded-lg bg-muted p-3 text-sm">Sign in to connect {client?.name ?? "an app"} to Cadence. You'll choose what it can do next.</p>}
             {session && connecting ? <OAuthContinue /> : <>
             {email && <EmailForm next={connecting ? `/login?${new URLSearchParams(Object.entries(q).flatMap(([k, v]) => (Array.isArray(v) ? v.map((x) => [k, x]) : v ? [[k, v]] : []))).toString()}` : next ?? undefined} />}
-            {email && <div className="flex items-center gap-3 text-xs text-muted-foreground"><span className="h-px flex-1 bg-border" />or<span className="h-px flex-1 bg-border" /></div>}
+            {email && (isDemo() || linkedin) && <div className="flex items-center gap-3 text-xs text-muted-foreground"><span className="h-px flex-1 bg-border" />or<span className="h-px flex-1 bg-border" /></div>}
             {isDemo() ? <>
               <DemoButton next={next ?? undefined} />
               <p className="text-xs text-muted-foreground">Demo mode: a throwaway account with sample data. Nothing is sent to LinkedIn, Stripe or any AI service. Emailed sign-in links are printed in the server log.</p>
-            </> : <LinkedInButton next={next ?? undefined} />}
+            </> : linkedin ? <LinkedInButton next={next ?? undefined} />
+              : !email && <p className="rounded-lg border p-3 text-sm" role="status" data-testid="signin-unavailable">Sign-in isn't set up on this server yet. The operator needs to add the LinkedIn app keys or email settings.</p>}
             <p className="text-xs text-muted-foreground">
               New here? Signing in creates your account. You'll add a card next for the 7-day free trial.
               By continuing you agree to the <a className="underline" href="/terms">Terms</a> and <a className="underline" href="/privacy">Privacy policy</a>.
