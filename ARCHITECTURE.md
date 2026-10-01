@@ -387,6 +387,7 @@ erDiagram
     text handle
     text status
     timestamp_with_time_zone expires_at
+    boolean drafting
     jsonb platform_data
     timestamp_with_time_zone created_at
   }

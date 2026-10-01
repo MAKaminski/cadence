@@ -5,10 +5,12 @@ import {
 import { user } from "./auth-schema";
 
 // ---------------------------------------------------------------------------------------------
-// Platforms. LinkedIn is the only one in code today; every platform-facing row still says which
-// platform it belongs to, so adding one is a new enum value and a new adapter, not a data migration.
-// Shared facts are columns; anything only one platform has goes in `platform_data`.
-export const platform = pgEnum("platform", ["linkedin"]);
+// Platforms. Every channel in src/platforms/registry.ts has a value here, live or planned, so taking a
+// planned channel live is a registry entry and an adapter, not a migration. Every platform-facing row
+// says which platform it belongs to. Shared facts are columns; the rest goes in `platform_data`.
+export const platform = pgEnum("platform", [
+  "linkedin", "x", "threads", "bluesky", "mastodon", "facebook", "instagram", "pinterest", "tiktok", "youtube", "reddit", "google_business",
+]);
 /** Where a push token lives. iOS today; Android would be a new value and a new sender. */
 export const devicePlatform = pgEnum("device_platform", ["ios"]);
 
@@ -31,6 +33,8 @@ export const platformAccounts = pgTable("platform_accounts", {
   handle: text("handle"),
   status: text("status", { enum: ["active", "expiring", "expired", "revoked"] }).notNull().default("active"),
   expiresAt: timestamp("expires_at", { withTimezone: true }),
+  /** Make drafts for this channel. Off keeps the connection but stops new drafts for it. */
+  drafting: boolean("drafting").notNull().default(true),
   platformData: jsonb("platform_data").notNull().default({}),
   createdAt: created(),
 }, (t) => [uniqueIndex("platform_accounts_unique").on(t.userId, t.platform, t.externalId), tenant("platform_accounts")]).enableRLS();

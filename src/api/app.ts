@@ -2,6 +2,7 @@
 // /api/v1/openapi.json is generated from the same schemas that validate requests. Every route calls
 // src/services: the same rules as the web app and the MCP server.
 import { OpenAPIHono, createRoute, z } from "@hono/zod-openapi";
+import { PLATFORM_IDS } from "@/platforms/registry";
 import type { Context, MiddlewareHandler } from "hono";
 import { API_LIMIT, API_RESOURCE } from "@/lib/auth";
 import { isRejection, verifyBearer } from "@/lib/bearer";
@@ -71,8 +72,9 @@ const Why = z.object({
   angle: z.string(), why: z.string(), checks: z.array(Check), adjustments: z.array(z.string()), verdict: z.enum(["ok", "held"]),
   rewritten: z.boolean(), model: z.string(), costUsd: z.number(), variantsConsidered: z.number(),
 }).openapi("Why", { description: "Why the draft reads the way it does: the angle, every check and what changed." });
+const PlatformEnum = z.enum(PLATFORM_IDS).openapi("Platform", { description: "The channel a draft or post belongs to. Planned channels are listed so clients needn't change when they go live." });
 const Draft = z.object({
-  id: z.string().uuid(), status: z.enum(drafts.DRAFT_STATUSES), version: z.number().int(), body: z.string(),
+  id: z.string().uuid(), platform: PlatformEnum, status: z.enum(drafts.DRAFT_STATUSES), version: z.number().int(), body: z.string(),
   scheduledFor: z.string().datetime().nullable(), createdAt: z.string().datetime(), why: Why,
 }).openapi("Draft");
 const Me = z.object({
@@ -89,7 +91,7 @@ const Profile = z.object({
   model: z.string(), autoPublish: z.boolean(), setupComplete: z.boolean(),
 }).openapi("Profile");
 const Publication = z.object({
-  id: z.string().uuid(), draftId: z.string().uuid(), status: z.enum(["publishing", "published", "needs_review", "failed"]),
+  id: z.string().uuid(), platform: PlatformEnum, draftId: z.string().uuid(), status: z.enum(["publishing", "published", "needs_review", "failed"]),
   url: z.string().nullable(), publishedAt: z.string().nullable(), body: z.string(),
   latest: z.object({ impressions: z.number().nullable(), reactions: z.number().nullable(), comments: z.number().nullable(), reshares: z.number().nullable(), sample: z.boolean() }).nullable(),
 }).openapi("Publication");

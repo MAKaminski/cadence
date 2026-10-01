@@ -19,4 +19,6 @@ export type GateRecord = {
   variantsConsidered: number;
   /** Rated examples that steered the draft (Examples page), when the feature is on and any are rated. */
   examples?: { up: number; down: number };
+  /** For a channel version (X…): the LinkedIn draft it was written from. */
+  adaptedFrom?: string;
 };

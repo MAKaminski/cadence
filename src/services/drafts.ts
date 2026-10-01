@@ -8,6 +8,7 @@ import { approveInTx } from "@/lib/drafting";
 import { evaluate } from "@/engine/evaluate";
 import { LIMITS } from "@/lib/catalog";
 import type { GateRecord } from "@/engine/types";
+import { lengthOn, spec, type PlatformId } from "@/platforms/registry";
 import { isPaused } from "./plan";
 import { ServiceError } from "./errors";
 
@@ -16,11 +17,11 @@ export const CHECKINS_PER_DAY = 20;
 export const DRAFT_STATUSES = ["draft", "held", "scheduled", "published", "skipped", "failed"] as const;
 
 export type DraftOut = {
-  id: string; status: (typeof DRAFT_STATUSES)[number]; version: number; body: string;
+  id: string; platform: PlatformId; status: (typeof DRAFT_STATUSES)[number]; version: number; body: string;
   scheduledFor: string | null; createdAt: string; why: GateRecord;
 };
 const out = (d: typeof drafts.$inferSelect): DraftOut => ({
-  id: d.id, status: d.status as DraftOut["status"], version: d.version, body: d.body,
+  id: d.id, platform: d.platform, status: d.status as DraftOut["status"], version: d.version, body: d.body,
   scheduledFor: d.scheduledFor?.toISOString() ?? null, createdAt: d.createdAt.toISOString(), why: d.gate as GateRecord,
 });
 
@@ -68,17 +69,18 @@ async function unschedule(tx: Tx, id: string) {
 export async function editDraft(userId: string, id: string, body: string): Promise<DraftOut> {
   const text = body.trim();
   if (text.length < 10) throw new ServiceError("invalid", "The post is too short.");
-  if (text.length > LIMITS.hardChars) throw new ServiceError("invalid", `LinkedIn allows ${LIMITS.hardChars} characters.`);
   await asUser(userId, async (tx) => {
     const [d] = await tx.select().from(drafts).where(eq(drafts.id, id));
     if (!d) throw new ServiceError("not_found", "No draft with that id.");
+    const s = spec(d.platform);
+    if (lengthOn(s, text) > s.limits.hardChars) throw new ServiceError("invalid", `${s.name} allows ${s.limits.hardChars} characters.`);
     if (!["draft", "held", "scheduled"].includes(d.status)) throw new ServiceError("conflict", "This draft can no longer be edited.");
     const [p] = await tx.select().from(profiles).where(eq(profiles.userId, userId));
     const ids = (d.inputIds as string[]).filter(Boolean);
     const notes = ids.length ? (await tx.select({ body: inputs.body }).from(inputs).where(inArray(inputs.id, ids))).map((r) => r.body) : [];
     const recent = (await tx.select({ body: drafts.body }).from(drafts)
-      .where(and(inArray(drafts.status, ["scheduled", "published"]), sql`${drafts.id} <> ${id}`)).limit(LIMITS.repeatLookback)).map((r) => r.body);
-    const ev = evaluate(text, { facts: p.facts as string[], notes, topics: p.topics as string[], noGo: p.noGo as string[], recent });
+      .where(and(inArray(drafts.status, ["scheduled", "published"]), eq(drafts.platform, d.platform), sql`${drafts.id} <> ${id}`)).limit(LIMITS.repeatLookback)).map((r) => r.body);
+    const ev = evaluate(text, { facts: p.facts as string[], notes, topics: p.topics as string[], noGo: p.noGo as string[], recent }, s);
     const gate = d.gate as GateRecord;
     await unschedule(tx, id);
     await tx.update(drafts).set({

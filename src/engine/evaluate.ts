@@ -1,5 +1,6 @@
 import { LIMITS } from "@/lib/catalog";
-import { formatForLinkedIn } from "./format";
+import { spec, type PlatformSpec } from "@/platforms/registry";
+import { formatFor } from "./format";
 import { qualityChecks } from "./gate";
 import { unsupportedClaims } from "./facts";
 import { closestRecent, noGoHits } from "./suppress";
@@ -9,11 +10,12 @@ export type Context = { facts: string[]; notes: string[]; topics: string[]; noGo
 export type Evaluation = { text: string; checks: Check[]; fixes: string[]; verdict: "ok" | "rewrite" | "held"; score: number };
 
 /** Run every check on one candidate, in the order shown to the user. */
-export function evaluate(raw: string, ctx: Context): Evaluation {
-  const { text, fixes } = formatForLinkedIn(raw);
+export function evaluate(raw: string, ctx: Context, s: Pick<PlatformSpec, "name" | "limits"> = spec("linkedin")): Evaluation {
+  const { text, fixes } = formatFor(raw, s);
+  const label = `${s.name} formatting`;
   const checks: Check[] = [
-    fixes.length ? { id: "format", label: "LinkedIn formatting", outcome: "fixed", detail: fixes.join("; ") } : { id: "format", label: "LinkedIn formatting", outcome: "pass" },
-    ...qualityChecks(text),
+    fixes.length ? { id: "format", label, outcome: "fixed", detail: fixes.join("; ") } : { id: "format", label, outcome: "pass" },
+    ...qualityChecks(text, s),
   ];
 
   const claims = unsupportedClaims(text, [...ctx.facts, ...ctx.notes, ...ctx.topics]);

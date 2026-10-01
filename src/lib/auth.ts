@@ -11,6 +11,7 @@ import * as schema from "@/db/schema";
 import { platformAccounts } from "@/db/schema";
 import { asUser } from "@/db";
 import { isDemo } from "@/lib/mode";
+import { specByProvider } from "@/platforms/registry";
 import { sendEmail } from "@/lib/email";
 import { MAGIC_LINK_MINUTES, confirmUrl, magicLinkEmail, safeNext } from "@/lib/magic-link";
 
@@ -61,10 +62,22 @@ export const auth = betterAuth({
       // sign-in renews the posting permission too.
       scope: ["w_member_social"],
     },
+    // X is a channel to post to, never a way to sign up: people connect it from Channels while signed
+    // in (linkSocial). Cadence's own X app (X_CLIENT_ID/SECRET) does the posting for everyone, so
+    // nobody brings their own keys. offline.access gives a refresh token, so the connection lasts.
+    twitter: {
+      clientId: process.env.X_CLIENT_ID ?? "",
+      clientSecret: process.env.X_CLIENT_SECRET ?? "",
+      scope: ["tweet.write"],
+      disableSignUp: true,
+      disableImplicitSignUp: true,
+    },
   },
   account: {
     encryptOAuthTokens: true,
-    accountLinking: { enabled: true, trustedProviders: ["linkedin", "apple"] },
+    // allowDifferentEmails: connecting a channel while signed in links it whatever email it reports
+    // (X often reports none). It applies only to that explicit, signed-in link, never to sign-in.
+    accountLinking: { enabled: true, trustedProviders: ["linkedin", "apple"], allowDifferentEmails: true },
   },
   databaseHooks: {
     // Keep the platform-level view of the LinkedIn connection current on every sign-in. The token stays
@@ -126,10 +139,14 @@ export const auth = betterAuth({
 
 export type Session = typeof auth.$Infer.Session;
 
-async function linkPlatformAccount(acc: { providerId: string; accountId: string; userId: string; accessTokenExpiresAt?: Date | null }) {
-  if (acc.providerId !== "linkedin") return;
-  const values = { status: "active" as const, expiresAt: acc.accessTokenExpiresAt ?? null };
+/** Keep platform_accounts (the channel view) in step with Better Auth's account rows (the tokens). */
+async function linkPlatformAccount(acc: { providerId: string; accountId: string; userId: string; accessTokenExpiresAt?: Date | null; refreshToken?: string | null }) {
+  const channel = specByProvider(acc.providerId);
+  if (!channel) return;
+  // A channel with a refresh token renews itself; only LinkedIn's ~60-day token really expires.
+  const values = { status: "active" as const, expiresAt: acc.refreshToken ? null : acc.accessTokenExpiresAt ?? null };
+  const externalId = channel.id === "linkedin" ? `urn:li:person:${acc.accountId}` : acc.accountId;
   await asUser(acc.userId, (tx) => tx.insert(platformAccounts)
-    .values({ userId: acc.userId, platform: "linkedin", externalId: `urn:li:person:${acc.accountId}`, ...values })
+    .values({ userId: acc.userId, platform: channel.id, externalId, ...values })
     .onConflictDoUpdate({ target: [platformAccounts.userId, platformAccounts.platform, platformAccounts.externalId], set: values }));
 }

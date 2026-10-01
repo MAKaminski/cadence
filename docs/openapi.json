@@ -285,6 +285,9 @@
             "type": "string",
             "format": "uuid"
           },
+          "platform": {
+            "$ref": "#/components/schemas/Platform"
+          },
           "status": {
             "type": "string",
             "enum": [
@@ -319,6 +322,7 @@
         },
         "required": [
           "id",
+          "platform",
           "status",
           "version",
           "body",
@@ -326,6 +330,24 @@
           "createdAt",
           "why"
         ]
+      },
+      "Platform": {
+        "type": "string",
+        "enum": [
+          "linkedin",
+          "x",
+          "threads",
+          "bluesky",
+          "mastodon",
+          "facebook",
+          "instagram",
+          "pinterest",
+          "tiktok",
+          "youtube",
+          "reddit",
+          "google_business"
+        ],
+        "description": "The channel a draft or post belongs to. Planned channels are listed so clients needn't change when they go live."
       },
       "Why": {
         "type": "object",
@@ -426,6 +448,9 @@
             "type": "string",
             "format": "uuid"
           },
+          "platform": {
+            "$ref": "#/components/schemas/Platform"
+          },
           "draftId": {
             "type": "string",
             "format": "uuid"
@@ -499,6 +524,7 @@
         },
         "required": [
           "id",
+          "platform",
           "draftId",
           "status",
           "url",

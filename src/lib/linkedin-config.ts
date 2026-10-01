@@ -14,14 +14,14 @@ export function linkedinIdLooksReal(id: string | undefined): boolean {
 }
 
 /** True when sign-in and publishing through LinkedIn can work here. Demo mode uses a stand-in. */
-export function linkedinConfigured(env: NodeJS.ProcessEnv = process.env): boolean {
+export function linkedinConfigured(env: Record<string, string | undefined> = process.env): boolean {
   if (isDemo()) return true;
   return linkedinIdLooksReal(env.LINKEDIN_CLIENT_ID) && Boolean((env.LINKEDIN_CLIENT_SECRET ?? "").trim())
     && !PLACEHOLDERS.has((env.LINKEDIN_CLIENT_SECRET ?? "").trim().toLowerCase());
 }
 
 /** What to tell the operator, once, when LinkedIn isn't set up. Never includes the values. */
-export function linkedinWarning(env: NodeJS.ProcessEnv = process.env): string | null {
+export function linkedinWarning(env: Record<string, string | undefined> = process.env): string | null {
   if (linkedinConfigured(env)) return null;
   const base = (env.BETTER_AUTH_URL ?? "https://YOUR_DOMAIN").replace(/\/$/, "");
   return [

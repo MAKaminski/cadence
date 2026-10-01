@@ -7,9 +7,10 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardFooter, CardHeader } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
 import type { Check as CheckT, GateRecord } from "@/engine/types";
+import { lengthOn, spec, type PlatformId } from "@/platforms/registry";
 import { approveDraft, editDraft, postNow, skipDraft } from "./actions";
 
-export type DraftView = { id: string; body: string; status: string; version: number; scheduledFor: string | null; gate: GateRecord; tz: string };
+export type DraftView = { id: string; platform: PlatformId; body: string; status: string; version: number; scheduledFor: string | null; gate: GateRecord; tz: string };
 
 const ICON = { pass: Check, fixed: Wrench, rewrite: RefreshCw, held: CircleAlert } as const;
 const TONE = { pass: "text-emerald-600", fixed: "text-sky-600", rewrite: "text-amber-600", held: "text-red-600" } as const;
@@ -39,10 +40,12 @@ export function DraftCard({ d }: { d: DraftView }) {
   });
   const g = d.gate;
   const open = d.status === "draft" || d.status === "held";
+  const channel = spec(d.platform), used = lengthOn(channel, editing ? body : d.body);
 
   return (
     <Card data-testid="draft" data-status={d.status}>
       <CardHeader className="flex flex-row flex-wrap items-center gap-2 space-y-0">
+        <Badge variant="outline" data-testid="channel">{channel.name}</Badge>
         {d.status === "held" && <Badge variant="destructive">Held for you</Badge>}
         {d.status === "draft" && <Badge variant="secondary">Ready to review</Badge>}
         {d.status === "scheduled" && <Badge>Scheduled · {d.scheduledFor ? when(d.scheduledFor, d.tz) : ""}</Badge>}
@@ -52,7 +55,10 @@ export function DraftCard({ d }: { d: DraftView }) {
       </CardHeader>
       <CardContent className="flex flex-col gap-4">
         {editing
-          ? <Textarea aria-label="Edit post" rows={10} value={body} onChange={(e) => setBody(e.target.value)} />
+          ? <div className="flex flex-col gap-1">
+              <Textarea aria-label="Edit post" rows={d.platform === "linkedin" ? 10 : 4} value={body} onChange={(e) => setBody(e.target.value)} />
+              <p className={`text-right text-xs tabular-nums ${used > channel.limits.hardChars ? "text-destructive" : "text-muted-foreground"}`}>{used} / {channel.limits.hardChars}</p>
+            </div>
           : <p className="whitespace-pre-wrap leading-relaxed">{d.body}</p>}
         {d.status === "held" && (
           <p className="rounded-lg bg-red-50 p-3 text-sm text-red-900 dark:bg-red-950 dark:text-red-100">

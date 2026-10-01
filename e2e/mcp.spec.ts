@@ -1,7 +1,7 @@
 // An assistant connecting to Cadence exactly as Claude or Codex would: discover the OAuth server from
 // the MCP endpoint's 401, register itself, send the user through sign-in and consent, swap the code for
 // a token, then call tools with the official MCP client. Runs against `pnpm demo`.
-import { expect, test } from "@playwright/test";
+import { expect, test } from "./test";
 import { createHash, randomBytes } from "node:crypto";
 import { Client, StreamableHTTPClientTransport } from "@modelcontextprotocol/client";
 
