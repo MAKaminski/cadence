@@ -48,6 +48,35 @@ d("row-level security", () => {
     expect(b.about).toEqual({ role: B });
   });
 
+  it("every table with a user_id column has the tenant policy and the app role's grants", async () => {
+    const rows = await mod.db.execute(sql`
+      select c.table_name,
+             exists (select 1 from pg_policies p where p.tablename = c.table_name and p.policyname = c.table_name || '_tenant') as policy,
+             has_table_privilege('cadence_app', c.table_name, 'select') as can_read
+      from information_schema.columns c
+      where c.table_schema = 'public' and c.column_name = 'user_id'
+        and c.table_name not in ('session', 'account', 'apikey', 'oauth_access_token', 'oauth_refresh_token', 'oauth_consent', 'oauth_client')`);
+    const bad = (rows as unknown as { table_name: string; policy: boolean; can_read: boolean }[]).filter((r) => !r.policy || !r.can_read).map((r) => r.table_name);
+    expect(bad).toEqual([]);
+  });
+
+  it("plans are per user: schedules, pauses and planner settings", async () => {
+    const plan = await import("@/services/plan");
+    await plan.setPosting(A, { perWeek: 5 });
+    await plan.setEngage(A, { perDay: 4 });
+    await plan.setHold(A, "all", "testing");
+    const a = await plan.getPlan(A), b = await plan.getPlan(B);
+    expect(a.posting.perWeek).toBe(5);
+    expect(a.engage.perDay).toBe(4);
+    expect(a.holds.map((h) => h.name)).toEqual(["all"]);
+    expect(b.engage.rows).toEqual([]);
+    expect(b.holds).toEqual([]);
+    expect(b.posting.rows.every((r) => r.key.startsWith("posting:"))).toBe(true);
+    const seen = await mod.asUser(B, (tx) => tx.select().from(s.schedules).where(eq(s.schedules.userId, A)));
+    expect(seen).toEqual([]);
+    await expect(mod.asUser(B, (tx) => tx.insert(s.schedules).values({ userId: A, key: "engage:99", family: "engage", localTime: "12:00", executor: "runner" }))).rejects.toThrow();
+  });
+
   it("the worker can see every user's rows, for claiming jobs", async () => {
     const rows = await mod.asWorker((tx) => tx.select().from(s.inputs).where(sql`${s.inputs.userId} in (${A}, ${B})`));
     expect(rows).toHaveLength(2);

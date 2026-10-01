@@ -14,6 +14,7 @@ import { consistency, outreach } from "@/services/stats";
 import Link from "next/link";
 import { isDemo } from "@/lib/mode";
 import { PERSONA } from "@/lib/demo-persona";
+import { ConnectLinkedIn } from "@/components/connect-linkedin";
 
 export const metadata: Metadata = { title: "This week" };
 
@@ -28,6 +29,8 @@ export default async function ThisWeek() {
     publishing: await tx.select({ id: jobs.id }).from(jobs).where(and(eq(jobs.kind, "publish"), inArray(jobs.status, ["queued", "running"]), sql`${jobs.runAt} <= now() + interval '1 minute'`)).limit(1),
     lastFailed: (await tx.select({ error: jobs.lastError, status: jobs.status }).from(jobs).where(eq(jobs.kind, "draft")).orderBy(desc(jobs.createdAt)).limit(1))[0],
     spent: Number((await tx.select({ usd: sql<string>`coalesce(sum(${llmUsage.costUsd}),0)` }).from(llmUsage).where(gte(llmUsage.createdAt, monthStart)))[0].usd),
+    connected: (await tx.select({ id: platformAccounts.id }).from(platformAccounts)
+      .where(and(eq(platformAccounts.platform, "linkedin"), eq(platformAccounts.status, "active"))).limit(1)).length > 0,
     expiresSoon: (await tx.select({ id: platformAccounts.id }).from(platformAccounts)
       .where(and(eq(platformAccounts.platform, "linkedin"), sql`${platformAccounts.expiresAt} < now() + interval '7 days'`)).limit(1)).length > 0,
   }));
@@ -51,7 +54,10 @@ export default async function ThisWeek() {
         </p>
       </div>
 
-      {data.expiresSoon && <p className="rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900 dark:bg-amber-950 dark:text-amber-100">Your LinkedIn connection ends soon. <a className="underline" href="/login">Sign in with LinkedIn again</a> to keep posting.</p>}
+      {!data.connected && !isDemo() && <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border p-3 text-sm" data-testid="connect-linkedin">
+        <p>Connect LinkedIn to publish what you approve. Drafting works without it.</p><ConnectLinkedIn back="/app" variant="default" /></div>}
+      {data.connected && data.expiresSoon && <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900 dark:bg-amber-950 dark:text-amber-100">
+        <p>Your LinkedIn connection ends soon. Renew it to keep posting.</p><ConnectLinkedIn label="Renew" back="/app" /></div>}
       {data.spent >= LIMITS.monthlyCapUsd && <p className="rounded-lg border p-3 text-sm">This month's drafting allowance is used up (${LIMITS.monthlyCapUsd}). Scheduled posts still go out; new drafts resume on the 1st.</p>}
       {data.lastFailed?.status === "failed" && data.lastFailed.error && !drafting && <p className="rounded-lg border border-red-300 p-3 text-sm text-red-700">Drafting stopped: {data.lastFailed.error}</p>}
 

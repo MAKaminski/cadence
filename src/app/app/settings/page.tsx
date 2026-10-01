@@ -15,6 +15,7 @@ import { db } from "@/db";
 import { apikey, oauthClient, oauthConsent } from "@/db/schema";
 import { Connections, type Connection } from "./connections";
 import { DeleteAccount } from "./delete-account";
+import { ConnectLinkedIn } from "@/components/connect-linkedin";
 
 export const metadata: Metadata = { title: "Settings" };
 
@@ -52,11 +53,11 @@ export default async function Settings() {
           <CardTitle>LinkedIn connection</CardTitle>
           <CardDescription>
             {demo ? "Demo mode: posts are recorded here, never sent to LinkedIn."
-              : !s.conn ? "Not connected. Sign in with LinkedIn to connect."
-              : `${s.conn.status === "active" ? "Connected" : s.conn.status === "expiring" ? "Ending soon" : "Disconnected"}${s.conn.expiresAt ? ` · renews by signing in before ${s.conn.expiresAt.toDateString()}` : ""}.`}
+              : !s.conn ? "Not connected. Connect LinkedIn so Cadence can publish the posts you approve; drafting works without it."
+              : `${s.conn.status === "active" ? "Connected" : s.conn.status === "expiring" ? "Ending soon" : "Disconnected"}${s.conn.expiresAt ? ` · renew before ${s.conn.expiresAt.toDateString()}` : ""}.`}
           </CardDescription>
         </CardHeader>
-        {!demo && <CardContent><Button variant="outline" render={<a href="/login" />}>Reconnect LinkedIn</Button></CardContent>}
+        {!demo && <CardContent><ConnectLinkedIn label={s.conn ? "Reconnect LinkedIn" : "Connect LinkedIn"} /></CardContent>}
       </Card>
       <Card id="assistants">
         <CardHeader>

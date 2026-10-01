@@ -4,7 +4,8 @@ import { createHash } from "node:crypto";
 import { and, desc, eq, gte, inArray, sql } from "drizzle-orm";
 import { asUser } from "@/db";
 import { drafts, inputs, jobs, llmUsage, platformAccounts, profiles, publications } from "@/db/schema";
-import { nextSlots, type Cadence } from "@/engine/schedule";
+import { nextSlotTimes, type Cadence } from "@/engine/schedule";
+import { postingSlots } from "@/services/plan";
 import { LIMITS } from "@/lib/catalog";
 import { evaluate, pickBest, type Context, type Evaluation } from "@/engine/evaluate";
 import type { GateRecord } from "@/engine/types";
@@ -116,8 +117,9 @@ export async function approveInTx(tx: Tx, userId: string, draftId: string, now =
     ...(await tx.select({ at: drafts.scheduledFor }).from(drafts).where(eq(drafts.status, "scheduled"))).map((r) => r.at),
     ...(await tx.select({ at: publications.publishedAt }).from(publications).where(gte(publications.publishedAt, new Date(now.getTime() - 8 * 86_400_000)))).map((r) => r.at),
   ].filter((x): x is Date => Boolean(x));
-  const [slot] = nextSlots(p.cadence as Cadence, now, taken);
-  if (!slot) throw new Error("No free posting slot in the next two months. Add a posting day or raise posts per week.");
+  // The planner's posting slots (src/services/plan.ts); the first time, they are made from setup.
+  const [slot] = nextSlotTimes(await postingSlots(tx, userId), (p.cadence as Cadence).tz, now, taken);
+  if (!slot) throw new Error("No free posting slot in the next two months. Turn on a posting slot or raise posts a week on Plan.");
   await tx.update(drafts).set({ status: "scheduled", approvedBodyHash: bodyHash(d.body), scheduledFor: slot }).where(eq(drafts.id, draftId));
   // A publication the platform clearly refused can be tried again after the user re-approves.
   await tx.delete(publications).where(and(eq(publications.draftId, draftId), eq(publications.status, "failed")));

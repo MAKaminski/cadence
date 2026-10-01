@@ -1,6 +1,6 @@
 import { sql } from "drizzle-orm";
 import {
-  boolean, index, integer, jsonb, numeric, pgEnum, pgPolicy, pgRole, pgTable, text, timestamp, uniqueIndex, uuid,
+  boolean, index, integer, jsonb, numeric, pgEnum, pgPolicy, pgRole, pgTable, primaryKey, text, timestamp, uniqueIndex, uuid,
 } from "drizzle-orm/pg-core";
 import { user } from "./auth-schema";
 
@@ -137,3 +137,40 @@ export const devices = pgTable("devices", {
   createdAt: created(),
   lastSeenAt: timestamp("last_seen_at", { withTimezone: true }).notNull().defaultNow(),
 }, (t) => [uniqueIndex("devices_token").on(t.token), index("devices_user").on(t.userId), tenant("devices")]).enableRLS();
+
+// ---------------------------------------------------------------------------------------------
+// The planner. Every recurring job a user runs is a schedule row: a time, the days it runs and a mode.
+// Posting rows (`posting:A`..`posting:C`) are the slots approved posts go into, run by this server.
+// Comment, outreach and job-search rows are run by the optional Cadence runner on the user's own
+// machine; until one is connected they are plans only. "How many" is a count the planner turns into
+// rows (src/engine/plan.ts); "when" is the row's time.
+
+/** One recurring job. `days` is a Mon..Sun mask ("1111100" = weekdays). */
+export const schedules = pgTable("schedules", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  userId: owner(),
+  key: text("key").notNull(),                            // posting:A, engage:03, ...
+  family: text("family", { enum: ["posting", "engage", "outreach", "jobs"] }).notNull(),
+  slot: text("slot"),                                    // A/B/C for posting rows
+  localTime: text("local_time").notNull(),               // HH:MM in the user's zone
+  days: text("days").notNull().default("1111111"),
+  mode: text("mode", { enum: ["off", "shadow", "live"] }).notNull().default("off"),
+  executor: text("executor", { enum: ["hosted", "runner"] }).notNull(),
+  note: text("note"),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+}, (t) => [uniqueIndex("schedules_key").on(t.userId, t.key), tenant("schedules")]).enableRLS();
+
+/** A pause. `all` stops publishing and every runner job; the others stop one family. */
+export const holds = pgTable("holds", {
+  userId: owner(),
+  name: text("name", { enum: ["all", "engage", "outreach", "jobs"] }).notNull(),
+  reason: text("reason"),
+  setAt: timestamp("set_at", { withTimezone: true }).notNull().defaultNow(),
+}, (t) => [primaryKey({ columns: [t.userId, t.name] }), tenant("holds")]).enableRLS();
+
+/** Planner preferences: the comment window and spacing, and the order posting slots fill in. */
+export const engineSettings = pgTable("engine_settings", {
+  userId: text("user_id").primaryKey().references(() => user.id, { onDelete: "cascade" }),
+  volume: jsonb("volume").notNull().default({}),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+}, () => [tenant("engine_settings")]).enableRLS();

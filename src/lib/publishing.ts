@@ -14,10 +14,22 @@ import { enqueue } from "@/lib/jobs";
 import { push } from "@/lib/push";
 import { isDemo } from "@/lib/mode";
 import { metrics as metricsTable } from "@/db/schema";
+import { isPaused } from "@/services/plan";
+
+/** While posting is paused, a due post waits and is checked again this often. */
+const PAUSE_RECHECK_MS = 30 * 60_000;
 
 export async function publishDraft(userId: string, draftId: string): Promise<string> {
   const d = await asUser(userId, async (tx) => (await tx.select().from(drafts).where(eq(drafts.id, draftId)))[0]);
   if (!d || d.status !== "scheduled") return "Not posted: the draft is no longer scheduled.";
+  // Paused on Plan: the post keeps its place and is looked at again later; nothing is used up.
+  const later = await asUser(userId, async (tx) => {
+    if (!(await isPaused(tx))) return null;
+    const at = new Date(Date.now() + PAUSE_RECHECK_MS);
+    await enqueue(tx, userId, "publish", draftId, at);
+    return at;
+  });
+  if (later) return `Not posted yet: posting is paused. Checking again at ${later.toISOString()}.`;
   if (!d.approvedBodyHash || bodyHash(d.body) !== d.approvedBodyHash) return "Not posted: the text changed after approval.";
 
   const claimed = await asUser(userId, (tx) => tx.insert(publications)
@@ -30,7 +42,7 @@ export async function publishDraft(userId: string, draftId: string): Promise<str
     .where(and(eq(platformAccounts.platform, d.platform), eq(platformAccounts.status, "active"))).limit(1))[0]);
 
   try {
-    if (!acc) throw new PublishError("No active LinkedIn connection. Sign in with LinkedIn again.", true);
+    if (!acc) throw new PublishError("No active LinkedIn connection. Connect LinkedIn in Settings.", true);
     const out = await adapterFor(d.platform, acc).publish({ userId, authorUrn: acc.externalId, text: d.body });
     if (FAULT() === "after_publish") process.exit(86); // publish-safety test: die after the platform said yes
     await asUser(userId, async (tx) => {

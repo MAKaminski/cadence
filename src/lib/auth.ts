@@ -1,7 +1,7 @@
 import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { nextCookies } from "better-auth/next-js";
-import { anonymous, jwt } from "better-auth/plugins";
+import { anonymous, jwt, magicLink } from "better-auth/plugins";
 import { oauthProvider } from "@better-auth/oauth-provider";
 import { stripe } from "@better-auth/stripe";
 import { apiKey } from "@better-auth/api-key";
@@ -11,6 +11,8 @@ import * as schema from "@/db/schema";
 import { platformAccounts } from "@/db/schema";
 import { asUser } from "@/db";
 import { isDemo } from "@/lib/mode";
+import { sendEmail } from "@/lib/email";
+import { MAGIC_LINK_MINUTES, confirmUrl, magicLinkEmail, safeNext } from "@/lib/magic-link";
 
 export const PLAN = "cadence";
 export const TRIAL_DAYS = 7;
@@ -23,6 +25,10 @@ export const API_RESOURCE = `${BASE}/api/v1`;
 export const ISSUER = `${BASE}/api/auth`;
 /** Scopes an assistant can ask for. `cadence:approve` is optional on the consent screen. */
 export const OAUTH_SCOPES = ["cadence:read", "cadence:write", "cadence:approve"] as const;
+
+/** Email sign-in needs an email to arrive: always on in demo mode (the link is printed to the server
+ *  log), and in production only once Resend is configured. Otherwise the login page offers LinkedIn only. */
+export const emailSignIn = () => isDemo() || Boolean(process.env.RESEND_API_KEY && process.env.EMAIL_FROM);
 
 /** Per-key API limit: requests per window. Shown in the docs and sent as RateLimit headers. */
 export const API_LIMIT = { max: 60, windowMs: 60_000 } as const;
@@ -98,6 +104,19 @@ export const auth = betterAuth({
       // Every registered client (assistants, the iOS app) may request either resource; each token is
       // still bound to the one resource it was issued for.
       clientRegistrationDefaultResources: [MCP_RESOURCE, API_RESOURCE],
+    }),
+    // Sign in (and sign up) with an emailed link. LinkedIn is then connected from onboarding or Settings,
+    // and linked by email if the person signs in with LinkedIn instead (accountLinking above).
+    magicLink({
+      expiresIn: MAGIC_LINK_MINUTES * 60,
+      storeToken: "hashed",
+      rateLimit: { window: 60, max: 3 },
+      sendMagicLink: async ({ email, token, url }) => {
+        if (!emailSignIn()) throw new Error("Email sign-in is not configured on this server.");
+        const next = safeNext(new URL(url).searchParams.get("callbackURL"), BASE);
+        const { subject, text } = magicLinkEmail(confirmUrl(BASE, token, next));
+        await sendEmail(email, subject, text);
+      },
     }),
     // Demo sign-in, registered only when mode.ts allows demo mode (localhost or CI). Never in production.
     ...(isDemo() ? [anonymous({ emailDomainName: "demo.cadence.local", generateName: () => "Dana Reyes" })] : []),
