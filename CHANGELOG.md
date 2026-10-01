@@ -5,6 +5,10 @@ All notable changes to Cadence. The format follows [Keep a Changelog](https://ke
 ## [Unreleased]
 
 ### Added
+- **Post numbers are saved in Cadence** (`metrics` table, one snapshot per capture or save; the latest shows):
+  - **From LinkedIn, automatically**, once the server's LinkedIn app is approved for the Community Management API and `LINKEDIN_ANALYTICS=1`. Cadence asks for `r_member_postAnalytics` at sign-in and reads `memberCreatorPostAnalytics` 1, 3 and 7 days after each post: impressions, members reached, reactions, comments, reposts, saves, sends, link clicks, followers gained and profile views. A refused scope is reported as unavailable (sign in with LinkedIn again); a missing core number fails the capture so it is retried.
+  - **By hand, today**: Published has "Add numbers from LinkedIn" on each LinkedIn post (copy them from the post's *View analytics*). Each save is kept as a snapshot.
+  - Published shows every number with where it came from ("From LinkedIn" or "Entered by you") and when; Results charts them as before.
 - **Channels** (`/app/channels`): connect where your posts go, in one click, with no API keys.
   - **X is the first new channel.** Connect X (OAuth 2.0 with PKCE, through the server's one X app; the token is refreshed automatically). Every LinkedIn draft then gets an **X version**: rewritten to fit one post (280 characters as X counts them, where a link is 23 and most emoji 2), run through the same fact, no-go and repeat checks against X's limits, rewritten once if it misses, and kept as its own draft. Approve, edit, skip and post each version separately. X versions go out in your posting slots like LinkedIn posts; the two channels don't take each other's slots. Results reads X's public numbers (impressions, likes, replies, reposts and quotes).
   - A per-channel switch turns versions off without disconnecting; Disconnect removes the token.

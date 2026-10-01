@@ -6,6 +6,7 @@ import { asUser } from "@/db";
 import { platformAccounts } from "@/db/schema";
 import { isDemo } from "@/lib/mode";
 import { PLATFORMS, spec } from "@/platforms/registry";
+import { linkedinAnalytics } from "@/platforms/linkedin-analytics";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { ImpactChart, OutreachChart, WhatWorksChart } from "./charts";
@@ -35,8 +36,10 @@ export default async function Results({ searchParams }: { searchParams: Promise<
   const thisWeek = weeks[weeks.length - 1];
   const waiting = <p className="rounded-lg border border-dashed p-6 text-center text-sm text-muted-foreground">
     {channel.id === "linkedin"
-      ? "Waiting for LinkedIn analytics access. Once LinkedIn approves post analytics for Cadence, each post's numbers appear here 24 and 72 hours after it goes out."
-      : `No ${channel.name} numbers yet. Each post's numbers appear here 24 and 72 hours after it goes out.`}
+      ? (linkedinAnalytics()
+        ? "No LinkedIn numbers yet. Each post's numbers are read 1, 3 and 7 days after it goes out. If none arrive, sign in with LinkedIn again so it can grant Cadence access to your post analytics."
+        : "No LinkedIn numbers yet. LinkedIn doesn't share post analytics with Cadence yet, so add each post's numbers on Published (copy them from the post's View analytics page). They show up here straight away.")
+      : `No ${channel.name} numbers yet. Each post's numbers appear here 1, 3 and 7 days after it goes out.`}
   </p>;
 
   return (

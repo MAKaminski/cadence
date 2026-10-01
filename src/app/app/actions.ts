@@ -3,6 +3,8 @@
 import { revalidatePath } from "next/cache";
 import { requireSubscriber } from "@/lib/session";
 import * as svc from "@/services/drafts";
+import { recordMetrics } from "@/services/publications";
+import type { ManualKey } from "@/lib/metric-input";
 
 type Result = { ok: true; message?: string } | { ok: false; error: string };
 
@@ -26,4 +28,7 @@ export async function setAutoPublish(on: boolean) {
   const r = await run((u) => svc.setAutoPublish(u, on));
   revalidatePath("/app/settings");
   return r;
+}
+export async function saveNumbers(publicationId: string, numbers: Partial<Record<ManualKey, string>>) {
+  return run((u) => recordMetrics(u, publicationId, numbers), () => "Numbers saved.");
 }
