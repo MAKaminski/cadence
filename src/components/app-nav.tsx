@@ -1,8 +1,9 @@
 "use client";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { BarChart3, CalendarClock, Eye, FilePen, Gauge, PenLine, Radio, Send, Settings, SlidersHorizontal, Sparkles, SquarePen } from "lucide-react";
+import { BarChart3, CalendarClock, Eye, FilePen, Gauge, History, PenLine, Radio, Send, Settings, SlidersHorizontal, Sparkles, SquarePen } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { AccountNav } from "@/components/account-nav";
 
 /** What you do on a page: change things (act), read (report), or both. Each kind has a colour, an icon
  *  and a label, so the colour is never the only cue. */
@@ -25,18 +26,23 @@ export const SECTIONS: { kind: Kind; items: Item[] }[] = [
       { href: "/app/plan", label: "Plan", icon: CalendarClock },
       { href: "/app/channels", label: "Channels", icon: Radio },
       { href: "/app/examples", label: "Examples", icon: Sparkles, flag: "examples" },
+      { href: "/app/import", label: "AI history", icon: History },
     ] },
   ] },
-  { kind: "report", items: [{ href: "/app/published", label: "Published", icon: Send }, { href: "/app/results", label: "Results", icon: BarChart3 }] },
+  // Published reads like a report, but you add each post's numbers there, so it is Report + edit.
+  { kind: "both", items: [{ href: "/app/published", label: "Published", icon: Send }] },
+  { kind: "report", items: [{ href: "/app/results", label: "Results", icon: BarChart3 }] },
 ];
 
-/** Account items, pinned to the bottom of the nav. The Settings tab (gear) lives here. */
+/** Account items, pinned to the bottom of the nav. Settings is drawn as the account entry (your photo,
+ *  your name and the gear, account-nav.tsx) when the layout passes `account`. */
 export const FOOTER: (Item & { kind: Kind })[] = [
   { href: "/app/settings", label: "Settings", icon: Settings, kind: "both" },
   { href: "/app/admin/usage", label: "Usage", icon: Gauge, admin: true, kind: "report" },
 ];
 
 export type NavAccess = { flags: string[]; admin: boolean };
+export type NavAccount = { name: string; avatar: string | null };
 
 const isActive = (path: string, href: string) => (href === "/app" ? path === "/app" : path === href || path.startsWith(`${href}/`));
 
@@ -67,7 +73,7 @@ function KindLabel({ kind, className }: { kind: Kind; className?: string }) {
   );
 }
 
-export function AppNav({ access = { flags: [], admin: false } }: { access?: NavAccess }) {
+export function AppNav({ access = { flags: [], admin: false }, account }: { access?: NavAccess; account?: NavAccount }) {
   const path = usePathname();
   const shown = (i: Item) => (!i.flag || access.flags.includes(i.flag)) && (!i.admin || access.admin);
   return (
@@ -93,7 +99,9 @@ export function AppNav({ access = { flags: [], admin: false } }: { access?: NavA
         ))}
       </dl>
       <div className="absolute top-2.5 right-4 flex items-center gap-1 md:static md:flex-col md:items-stretch">
-        {FOOTER.filter(shown).map((i) => <NavLink key={i.href} item={i} kind={i.kind} path={path} iconOnlyOnPhone />)}
+        {FOOTER.filter(shown).map((i) => (i.href === "/app/settings" && account
+          ? <AccountNav key={i.href} name={account.name} avatar={account.avatar} kind={KINDS[i.kind]} className={cn("rounded-l-none border-l-2", KINDS[i.kind].bar)} />
+          : <NavLink key={i.href} item={i} kind={i.kind} path={path} iconOnlyOnPhone />))}
       </div>
     </nav>
   );

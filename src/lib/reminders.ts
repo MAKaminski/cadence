@@ -6,6 +6,7 @@ import { inputs, jobs, platformAccounts, profiles, user } from "@/db/schema";
 import { zoned, type Cadence } from "@/engine/schedule";
 import { sendEmail } from "@/lib/email";
 import { push } from "@/lib/push";
+import { IMPORT } from "@/lib/catalog";
 
 const DAY = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 const APP_URL = () => process.env.BETTER_AUTH_URL ?? "http://localhost:3000";
@@ -40,6 +41,8 @@ export async function sweep(now = new Date()) {
       }
     }
     await tx.execute(sql`update platform_accounts set status = 'expired' where status in ('active','expiring') and expires_at < now()`);
+    // An import upload nobody finished: its chunks (up to 1 GB) go, with the row.
+    await tx.execute(sql`delete from history_imports where status = 'uploading' and updated_at < now() - make_interval(hours => ${IMPORT.abandonHours})`);
   });
 }
 

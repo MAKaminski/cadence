@@ -195,3 +195,8 @@ export function DraftingEditor({ channels, demo }: { channels: ChannelView[]; de
   if (!on.length) return <p className="text-sm text-muted-foreground">LinkedIn always drafts. Connect another channel to choose here. <Link className="text-primary underline-offset-4 hover:underline" href="/app/channels">Channels</Link></p>;
   return <div className="flex flex-col gap-2">{on.map((c) => <DraftingRow key={c.id} c={c} demo={demo} />)}</div>;
 }
+
+/** Inputs edited on their home page (a review queue, a per-post form, an upload): one button there. */
+export function LinkEditor({ href, label }: { href: string; label: string }) {
+  return <Button variant="outline" size="sm" render={<Link href={href} />}>{label}</Button>;
+}

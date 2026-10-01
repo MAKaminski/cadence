@@ -11,6 +11,7 @@ const base: Signals = {
   autoPublish: { on: false, left: 2 }, paused: false, waiting: 0,
   channels: [{ name: "X", connected: false, connectable: true, drafting: null }],
   examples: { rated: 5 }, daysSinceCheckin: 2,
+  history: { pending: 0, facts: 6 }, postNumbers: { missing: 0, auto: false }, billing: null,
 };
 const s = (o: Partial<Signals>): Signals => ({ ...base, ...o });
 
@@ -24,6 +25,19 @@ test("every input has a home, a rule and a known group; ids are unique", () => {
   }
   assert.deepEqual(inputsOn("/app/plan").map((i) => i.id), ["postsPerWeek", "slots", "commentsPerDay", "commentWindow", "pause"]);
   assert.deepEqual(inputsOn("/app").map((i) => i.id), ["checkin"]);
+});
+
+test("imported history, post numbers and account rows", () => {
+  assert.equal(advise("history", base).direction, "maintain");
+  assert.match(advise("history", s({ history: { pending: 4, facts: 9 } })).reason, /4 suggestions/);
+  assert.equal(advise("history", s({ history: { pending: 0, facts: 2 } })).direction, "increase");     // thin profile: import
+  assert.equal(advise("postNumbers", s({ postNumbers: { missing: 3, auto: false } })).direction, "increase");
+  assert.equal(advise("postNumbers", s({ postNumbers: { missing: 3, auto: true } })).direction, "maintain"); // read automatically
+  assert.equal(advise("postNumbers", base).direction, "maintain");
+  assert.equal(advise("profile", base).direction, "maintain");
+  assert.match(advise("billing", s({ billing: { interval: "month" } })).reason, /20%/);
+  assert.deepEqual(inputsOn("/app/import").map((i) => i.id), ["history"]);
+  assert.deepEqual(inputsOn("/app/published").map((i) => i.id), ["postNumbers"]);
 });
 
 test("posts a week: decrease when under 75% of target, increase when on target and engagement held", () => {

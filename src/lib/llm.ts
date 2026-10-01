@@ -65,7 +65,8 @@ function profileBlock(b: Brief) {
   return `WHO: ${b.about.role ?? ""}\nAUDIENCE: ${b.about.audience ?? ""}\nGOAL: ${b.about.goals ?? ""}\n\nFACTS:\n${list(b.facts)}\n\nTOPICS:\n${list(b.topics)}\n\nNEVER:\n${list(b.noGo)}\n\nSAMPLES:\n${b.voiceSamples.map((s, i) => `--- sample ${i + 1}\n${s}`).join("\n")}`;
 }
 
-function cost(model: Model, u: Anthropic.Usage): Usage {
+/** What one response cost, from its token counts and PRICES. */
+export function cost(model: Model, u: Anthropic.Usage): Usage {
   const [pi, po] = PRICES[model];
   const cw = u.cache_creation_input_tokens ?? 0, cr = u.cache_read_input_tokens ?? 0;
   const tokensIn = u.input_tokens + cw + cr;

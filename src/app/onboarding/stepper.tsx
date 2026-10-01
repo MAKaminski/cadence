@@ -1,5 +1,6 @@
 "use client";
 import { useState, useTransition } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -70,6 +71,13 @@ export function Stepper({ initial, example, returnToApp }: { initial: Initial; e
           </Button>
         )}
       </div>
+
+      {step === 1 && (
+        <p className="rounded-lg border border-dashed p-3 text-sm text-muted-foreground" data-testid="bring-history">
+          <span className="font-medium text-foreground">Optional: bring your AI history.</span> Upload a ChatGPT or Claude export and Cadence suggests your facts,
+          topics and sample posts from it. <Link href="/onboarding/import" className="font-medium text-primary underline underline-offset-4">Import from ChatGPT or Claude</Link>
+        </p>
+      )}
 
       <form className="flex flex-col gap-6" onSubmit={(e) => { e.preventDefault(); submit(); }}>
         {step === 1 && <>

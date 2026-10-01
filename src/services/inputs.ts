@@ -2,7 +2,8 @@
 // services Results, Plan, Channels and Examples use, so a direction never disagrees with its evidence.
 import { desc, eq, gte, sql } from "drizzle-orm";
 import { asUser } from "@/db";
-import { drafts, inputs, llmUsage } from "@/db/schema";
+import { drafts, historySuggestions, inputs, llmUsage, metrics, profiles, publications } from "@/db/schema";
+import { annualConfigured, billingFor } from "./billing";
 import { LIMITS } from "@/lib/catalog";
 import { flagOnFor } from "@/lib/flags";
 import type { Signals } from "@/lib/inputs";
@@ -26,7 +27,14 @@ export async function signals(userId: string) {
     waiting: (await tx.select({ n: sql<number>`count(*)::int` }).from(drafts).where(eq(drafts.status, "scheduled")))[0].n,
     spent: Number((await tx.select({ usd: sql<string>`coalesce(sum(${llmUsage.costUsd}),0)` }).from(llmUsage).where(gte(llmUsage.createdAt, monthStart)))[0].usd),
     lastCheckin: (await tx.select({ at: inputs.createdAt }).from(inputs).orderBy(desc(inputs.createdAt)).limit(1))[0]?.at ?? null,
+    pending: (await tx.select({ n: sql<number>`count(*)::int` }).from(historySuggestions).where(eq(historySuggestions.status, "pending")))[0].n,
+    facts: ((await tx.select({ facts: profiles.facts }).from(profiles).where(eq(profiles.userId, userId)))[0]?.facts as string[] | undefined ?? []).length,
+    // Published LinkedIn posts over a day old with no snapshot yet (manual or automatic).
+    missing: (await tx.select({ n: sql<number>`count(*)::int` }).from(publications)
+      .where(sql`${publications.status} = 'published' and ${publications.platform} = 'linkedin' and ${publications.publishedAt} < now() - interval '1 day'
+        and not exists (select 1 from ${metrics} m where m.publication_id = ${publications.id})`))[0].n,
   }));
+  const bill = annualConfigured() ? await billingFor(userId) : null;
   const rates = posts.filter((p) => p.impressions > 0).map((p) => p.rate);
   const days = works.filter((w) => w.dimension === "weekday" && w.posts >= 2).sort((a, b) => b.rate - a.rate);
   const on = plan.posting.rows.filter((r) => r.mode !== "off");
@@ -44,6 +52,9 @@ export async function signals(userId: string) {
       .map((c) => ({ name: c.name, connected: Boolean(c.connection), connectable: c.connectable, drafting: c.connection ? c.connection.drafting : null })),
     examples: examplesOn ? await guidance(userId).then((g) => ({ rated: g.up + g.down })) : null,
     daysSinceCheckin: db.lastCheckin ? Math.floor((Date.now() - db.lastCheckin.getTime()) / 86_400_000) : null,
+    history: { pending: db.pending, facts: db.facts },
+    postNumbers: { missing: db.missing, auto: process.env.LINKEDIN_ANALYTICS === "1" },
+    billing: bill ? { interval: bill.interval } : null,
   };
   return { signals: s, plan, profile, channels, examplesOn };
 }

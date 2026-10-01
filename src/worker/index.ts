@@ -1,11 +1,12 @@
-// The worker: drafts after check-ins, publishes at the scheduled time, sends reminders.
+// The worker: drafts after check-ins, publishes at the scheduled time, sends reminders, reads imports.
 //   pnpm worker          run forever (the "worker" service in deploy/compose.yml)
 //   pnpm worker --once   drain what's due, then exit (tests, demo recording)
-import { claim, finish, recoverLost, type Job } from "@/lib/jobs";
+import { claim, finish, recoverLost, touch, type Job } from "@/lib/jobs";
 import { draftFromCheckin, CapReached } from "@/lib/drafting";
 import { captureMetrics, publishDraft } from "@/lib/publishing";
 import { remindCheckin, remindExpiry, sweep } from "@/lib/reminders";
 import { runAnalysis } from "@/services/examples";
+import { runImport } from "@/services/history";
 
 const POLL_MS = Number(process.env.WORKER_POLL_MS ?? 5000);
 const once = process.argv.includes("--once");
@@ -18,6 +19,7 @@ async function run(job: Job): Promise<string | void> {
     case "remind_expiry": return remindExpiry(job.userId, job.refId!);
     case "metrics": return captureMetrics(job.userId, job.refId!);
     case "analyze_example": return runAnalysis(job.userId, job.refId!);
+    case "import_history": return runImport(job.userId, job.refId!, () => touch(job.id));
   }
 }
 

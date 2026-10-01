@@ -8,26 +8,30 @@ import { LIMITS } from "./catalog";
 export type Direction = "maintain" | "increase" | "decrease";
 export type Advice = { direction: Direction; reason: string; href: string };
 
-export type InputGroup = "about" | "voice" | "writing" | "rhythm" | "publishing";
+export type InputGroup = "about" | "voice" | "writing" | "rhythm" | "publishing" | "account";
 export const GROUPS: { id: InputGroup; title: string; blurb: string }[] = [
   { id: "about", title: "Who you are", blurb: "What every draft is written from. Change it when your work or your audience changes." },
   { id: "voice", title: "How you sound", blurb: "What drafts sound like and what they stay away from." },
   { id: "writing", title: "What drafts learn from", blurb: "This week's notes, your ratings and the model doing the writing." },
   { id: "rhythm", title: "How much and when", blurb: "Your plan: the volume and timing approved posts and comments follow." },
   { id: "publishing", title: "Where it goes", blurb: "The channels posts go to and how much waits for your approval." },
+  { id: "account", title: "Your account", blurb: "Not used for writing; listed so every setting you can change is in one place." },
 ];
 
 /** How the Inputs page edits it. `manage` inputs are lists of items, edited on their home page. */
 export type Editor =
   | "text" | "lines" | "samples" | "model" | "checkin" | "examples"
   | "posts" | "slots" | "comments" | "window" | "pause"
-  | "auto-publish" | "channels" | "channel-drafting";
+  | "auto-publish" | "channels" | "channel-drafting"
+  /** Edited on its home page (a review queue, a per-post form, a file upload): the row links there. */
+  | "link";
 
 export type InputId =
   | "role" | "audience" | "goals" | "facts" | "voiceSamples" | "topics" | "noGo"
   | "checkin" | "examples" | "model"
   | "postsPerWeek" | "slots" | "commentsPerDay" | "commentWindow" | "pause"
-  | "autoPublish" | "channels" | "channelDrafting";
+  | "autoPublish" | "channels" | "channelDrafting"
+  | "history" | "postNumbers" | "profile" | "billing";
 
 export type InputDef = {
   id: InputId; group: InputGroup; label: string;
@@ -40,6 +44,8 @@ export type InputDef = {
   /** The direction rule, in words (shown on the page, and the spec for `advise`). */
   rule: string;
   flag?: "examples";
+  /** Shown only when this is true for the person (e.g. annual billing is offered on this server). */
+  only?: "annual";
 };
 
 const SETUP = (step: number) => ({ href: `/onboarding?edit=1&step=${step}`, label: "Setup" });
@@ -67,6 +73,10 @@ export const INPUTS: InputDef[] = [
   { id: "noGo", group: "voice", label: "Never write about", editor: "lines", home: SETUP(2),
     what: "Names, subjects or employers that must not appear.", why: "A match holds the draft for you.",
     rule: "Maintain. Add to it whenever a draft goes somewhere it shouldn't." },
+  { id: "history", group: "about", label: "Your AI history", editor: "link", home: { href: "/app/import", label: "Import" },
+    what: "A ChatGPT or Claude export, read for facts, topics, voice samples and post ideas you then accept or dismiss.",
+    why: "The quickest way to fill in the facts and samples every draft is written from; nothing is added until you accept it.",
+    rule: "Increase while suggestions are waiting for you, or while you have fewer than 5 facts; otherwise maintain." },
   { id: "checkin", group: "writing", label: "This week's check-in", editor: "checkin", home: { href: "/app", label: "This week" },
     what: "Rough notes on what you did, learned or noticed.", why: "Every draft starts from a check-in; it lives on This week next to the drafts it makes.",
     rule: "Increase when you haven't checked in for 7 days; otherwise maintain." },
@@ -94,12 +104,22 @@ export const INPUTS: InputDef[] = [
   { id: "autoPublish", group: "publishing", label: "Post clean drafts automatically", editor: "auto-publish", home: { href: "/app/settings", label: "Settings" },
     what: "Lets drafts that pass every check schedule themselves.", why: `Unlocks after ${LIMITS.autoPublishAfter} clean approvals; anything held still waits for you.`,
     rule: "Increase (turn on) once it's unlocked and no draft was held this month; otherwise maintain." },
+  { id: "postNumbers", group: "publishing", label: "Post numbers", editor: "link", home: { href: "/app/published", label: "Published" },
+    what: "Impressions, reactions, comments and reposts for each published LinkedIn post.",
+    why: "Every direction here that reads engagement needs them. Typed in on Published until the server reads them from LinkedIn automatically.",
+    rule: "Increase while a LinkedIn post published more than a day ago has no numbers and they aren't read automatically; otherwise maintain." },
   { id: "channels", group: "publishing", label: "Channels", editor: "channels", home: { href: "/app/channels", label: "Channels" },
     what: "Where your posts go: LinkedIn, and X once connected.", why: "Each connected channel gets its own version of every post.",
     rule: "Increase when a channel that's ready on this server isn't connected; otherwise maintain." },
   { id: "channelDrafting", group: "publishing", label: "Draft for each channel", editor: "channel-drafting", home: { href: "/app/channels", label: "Channels" },
     what: "Per channel: write a version of each post, or pause that channel's drafts.", why: "Keeps a connection without drafting for it.",
     rule: "Increase when a connected channel's drafting is off; otherwise maintain." },
+  { id: "profile", group: "account", label: "Name and photo", editor: "link", home: { href: "/app/settings#profile", label: "Settings" },
+    what: "How Cadence shows you: your name, and your LinkedIn photo or one you upload.", why: "Account details, kept in Settings.",
+    rule: "Maintain. Nothing here changes what gets written." },
+  { id: "billing", group: "account", label: "Billing plan", editor: "link", home: { href: "/app/settings#billing", label: "Settings" }, only: "annual",
+    what: "Monthly, or annual at 20% off.", why: "Billing lives in Settings, next to Stripe's portal.",
+    rule: "Maintain. A plan choice, not a writing input." },
 ];
 
 export const input = (id: InputId) => INPUTS.find((i) => i.id === id)!;
@@ -123,6 +143,12 @@ export type Signals = {
   channels: { name: string; connected: boolean; connectable: boolean; drafting: boolean | null }[];
   examples: { rated: number } | null;
   daysSinceCheckin: number | null;
+  /** Import suggestions waiting for a decision, and how many facts the profile has. */
+  history: { pending: number; facts: number };
+  /** Published LinkedIn posts over a day old with no numbers; `auto` when they're read from LinkedIn. */
+  postNumbers: { missing: number; auto: boolean };
+  /** Monthly or annual, when annual billing is offered here; null otherwise. */
+  billing: { interval: "month" | "year" } | null;
 };
 
 const pct = (r: number) => `${(r * 100).toFixed(1)}%`;
@@ -193,6 +219,18 @@ export function advise(id: InputId, s: Signals): Advice {
       return s.daysSinceCheckin == null || s.daysSinceCheckin > 7
         ? { direction: "increase", reason: s.daysSinceCheckin == null ? "No check-in yet. Drafts come from check-ins." : `Last check-in ${s.daysSinceCheckin} days ago. Drafts come from check-ins.`, href: "/app" }
         : keep(`Last check-in ${s.daysSinceCheckin === 0 ? "today" : `${s.daysSinceCheckin} day${s.daysSinceCheckin > 1 ? "s" : ""} ago`}.`, "/app");
+    case "history":
+      if (s.history.pending) return { direction: "increase", reason: `${s.history.pending} suggestion${s.history.pending > 1 ? "s" : ""} from your AI history waiting for you to accept or dismiss.`, href: "/app/import" };
+      return s.history.facts < 5 ? { direction: "increase", reason: `${s.history.facts} fact${s.history.facts === 1 ? "" : "s"} in your profile. Importing a ChatGPT or Claude export suggests more in a minute.`, href: "/app/import" }
+        : keep(`${s.history.facts} facts in your profile and nothing waiting to review.`, "/app/import");
+    case "postNumbers":
+      if (s.postNumbers.auto) return keep("Read from LinkedIn automatically 1, 3 and 7 days after each post.", "/app/published");
+      return s.postNumbers.missing ? { direction: "increase", reason: `${s.postNumbers.missing} published post${s.postNumbers.missing > 1 ? "s have" : " has"} no numbers yet. Add them from each post's View analytics.`, href: "/app/published" }
+        : keep("Every post over a day old has its numbers.", "/app/published");
+    case "billing":
+      return keep(s.billing?.interval === "year" ? "Billed annually." : "Billed monthly. Annual saves 20%.", "/app/settings#billing");
+    case "profile":
+      return keep("Account details only.", "/app/settings#profile");
     case "commentsPerDay": case "commentWindow":
       return keep("Planned only: no comment results to go on until the runner is connected.", "/app/plan#comments");
     case "role": case "audience": case "goals": case "noGo":

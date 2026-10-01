@@ -17,6 +17,9 @@ import { isDemo } from "@/lib/mode";
 import { metrics as metricsTable } from "@/db/schema";
 import { isPaused } from "@/services/plan";
 
+/** When each post's numbers are captured, in hours after it goes out. */
+export const METRIC_CAPTURE_HOURS = [24, 72, 168] as const;
+
 /** While posting is paused, a due post waits and is checked again this often. */
 const PAUSE_RECHECK_MS = 30 * 60_000;
 
@@ -49,9 +52,10 @@ export async function publishDraft(userId: string, draftId: string): Promise<str
     await asUser(userId, async (tx) => {
       await tx.update(publications).set({ status: "published", externalPostId: out.externalId, publishedAt: new Date() }).where(eq(publications.id, pubId));
       await tx.update(drafts).set({ status: "published" }).where(eq(drafts.id, draftId));
-      // Results at 24 h and 72 h (seconds apart in demo mode, so the charts fill in straight away).
-      const later = (h: number) => new Date(Date.now() + (isDemo() ? h * 250 : h * 3_600_000));
-      for (const h of [24, 72]) await enqueue(tx, userId, "metrics", pubId, later(h));
+      // Results at 24 h, 72 h and a week, when a LinkedIn post has mostly settled (seconds apart in demo
+      // mode, so the charts fill in straight away).
+      const later = (h: number) => new Date(Date.now() + (isDemo() ? h * 50 : h * 3_600_000));
+      for (const h of METRIC_CAPTURE_HOURS) await enqueue(tx, userId, "metrics", pubId, later(h));
     });
     await push(userId, { kind: "posted", excerpt: d.body.split("\n")[0] }).catch((e) => console.error("[push]", e));
     return `Published ${out.externalId}`;
@@ -73,7 +77,8 @@ export async function captureMetrics(userId: string, publicationId: string): Pro
   const recorded = pub.externalPostId.includes(":demo-") ? { platformData: { reviewer: true } } : null;
   const m = await adapterFor(pub.platform, recorded).fetchMetrics({ userId, externalId: pub.externalPostId, publishedAt: pub.publishedAt });
   if (!m) return "skipped: analytics not available";
-  const { sample, ...numbers } = m;
-  await asUser(userId, (tx) => tx.insert(metricsTable).values({ userId, publicationId, platform: pub.platform, ...numbers, platformData: sample ? { sample: true } : {} }));
+  const { sample, details, ...numbers } = m;
+  const platformData = { source: "platform", ...(sample ? { sample: true } : {}), ...(details && Object.keys(details).length ? { details } : {}) };
+  await asUser(userId, (tx) => tx.insert(metricsTable).values({ userId, publicationId, platform: pub.platform, ...numbers, platformData }));
   return `captured ${m.impressions} impressions`;
 }

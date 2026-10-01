@@ -13,7 +13,9 @@ import { asUser } from "@/db";
 import { isDemo } from "@/lib/mode";
 import { specByProvider } from "@/platforms/registry";
 import { sendEmail } from "@/lib/email";
-import { MAGIC_LINK_MINUTES, confirmUrl, magicLinkEmail, safeNext } from "@/lib/magic-link";
+import { MAGIC_LINK_MINUTES, confirmUrl, magicLinkEmail, magicLinkSink, safeNext } from "@/lib/magic-link";
+import { emailConfigured } from "@/lib/setup-check";
+import { ANALYTICS_SCOPE, linkedinAnalytics } from "@/platforms/linkedin-analytics";
 
 export const PLAN = "cadence";
 export const TRIAL_DAYS = 7;
@@ -29,7 +31,7 @@ export const OAUTH_SCOPES = ["cadence:read", "cadence:write", "cadence:approve"]
 
 /** Email sign-in needs an email to arrive: always on in demo mode (the link is printed to the server
  *  log), and in production only once Resend is configured. Otherwise the login page offers LinkedIn only. */
-export const emailSignIn = () => isDemo() || Boolean(process.env.RESEND_API_KEY && process.env.EMAIL_FROM);
+export const emailSignIn = () => isDemo() || emailConfigured(process.env);
 
 /** Per-key API limit: requests per window. Shown in the docs and sent as RateLimit headers. */
 export const API_LIMIT = { max: 60, windowMs: 60_000 } as const;
@@ -60,7 +62,9 @@ export const auth = betterAuth({
       // Sign-in and posting in ONE consent. Self-serve LinkedIn apps get no refresh token, so the
       // ~60-day access token is renewed by signing in again; asking for both here means every
       // sign-in renews the posting permission too.
-      scope: ["w_member_social"],
+      // Post numbers (impressions, reach, reactions…) need r_member_postAnalytics, which LinkedIn grants
+      // only to apps it has approved; asking for it otherwise breaks sign-in, so it waits for LINKEDIN_ANALYTICS=1.
+      scope: ["w_member_social", ...(linkedinAnalytics() ? [ANALYTICS_SCOPE] : [])],
     },
     // X is a channel to post to, never a way to sign up: people connect it from Channels while signed
     // in (linkSocial). Cadence's own X app (X_CLIENT_ID/SECRET) does the posting for everyone, so
@@ -83,8 +87,8 @@ export const auth = betterAuth({
     // Keep the platform-level view of the LinkedIn connection current on every sign-in. The token stays
     // in Better Auth's (encrypted) account row; this row carries identity, status and expiry.
     account: {
-      create: { after: async (acc) => { await linkPlatformAccount(acc); } },
-      update: { after: async (acc) => { await linkPlatformAccount(acc); } },
+      create: { after: async (acc) => { await linkPlatformAccount(acc); await linkedinPhoto(acc); } },
+      update: { after: async (acc) => { await linkPlatformAccount(acc); await linkedinPhoto(acc); } },
     },
   },
   plugins: [
@@ -94,7 +98,11 @@ export const auth = betterAuth({
       createCustomerOnSignUp: !isDemo(), // demo mode never talks to Stripe
       subscription: {
         enabled: true,
-        plans: [{ name: PLAN, priceId: process.env.STRIPE_PRICE_ID ?? "", freeTrial: { days: TRIAL_DAYS } }],
+        plans: [{
+          name: PLAN, priceId: process.env.STRIPE_PRICE_ID ?? "", freeTrial: { days: TRIAL_DAYS },
+          // Optional yearly price at 20% off (Settings → Billing offers the switch only when it's set).
+          ...(process.env.STRIPE_ANNUAL_PRICE_ID ? { annualDiscountPriceId: process.env.STRIPE_ANNUAL_PRICE_ID } : {}),
+        }],
       },
     }),
     // Keys for the public API and CLI. Scopes and limits are set server-side only (src/lib/api-keys.ts).
@@ -125,9 +133,12 @@ export const auth = betterAuth({
       storeToken: "hashed",
       rateLimit: { window: 60, max: 3 },
       sendMagicLink: async ({ email, token, url }) => {
-        if (!emailSignIn()) throw new Error("Email sign-in is not configured on this server.");
         const next = safeNext(new URL(url).searchParams.get("callbackURL"), BASE);
-        const { subject, text } = magicLinkEmail(confirmUrl(BASE, token, next));
+        const link = confirmUrl(BASE, token, next);
+        // `pnpm signin:link` (run on the server) takes the link itself instead of emailing it.
+        if (magicLinkSink.take) return magicLinkSink.take(link);
+        if (!emailSignIn()) throw new Error("Email sign-in is not configured on this server.");
+        const { subject, text } = magicLinkEmail(link);
         await sendEmail(email, subject, text);
       },
     }),
@@ -138,6 +149,15 @@ export const auth = betterAuth({
 });
 
 export type Session = typeof auth.$Infer.Session;
+
+/** An email sign-up that connects LinkedIn later gets its LinkedIn photo as the default, like a LinkedIn
+ *  sign-up does (see fillLinkedInPhoto). The token is decrypted server-side by Better Auth. */
+async function linkedinPhoto(acc: { id?: string; providerId: string; userId: string }) {
+  if (acc.providerId !== "linkedin" || !acc.id) return;
+  const { fillLinkedInPhoto } = await import("@/services/avatar");
+  await fillLinkedInPhoto(acc.userId, async () =>
+    (await auth.api.getAccessToken({ body: { accountId: acc.id!, userId: acc.userId } })).accessToken);
+}
 
 /** Keep platform_accounts (the channel view) in step with Better Auth's account rows (the tokens). */
 async function linkPlatformAccount(acc: { providerId: string; accountId: string; userId: string; accessTokenExpiresAt?: Date | null; refreshToken?: string | null }) {

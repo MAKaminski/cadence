@@ -9,7 +9,10 @@ import { LIMITS } from "@/lib/catalog";
 import { isDemo } from "@/lib/mode";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { BillingButton } from "./billing-button";
+import { Billing } from "./billing";
+import { Profile } from "./profile";
+import { avatarFor } from "@/services/avatar";
+import { billingFor } from "@/services/billing";
 import { AutoPublish } from "./auto-publish";
 import { ApiKeys, type KeyRow } from "./api-keys";
 import { db } from "@/db";
@@ -40,60 +43,86 @@ export default async function Settings() {
     .map((c) => ({ ...c, name: c.name ?? "Assistant", since: c.since.toISOString() }));
   const remaining = s.left;
   const demo = isDemo();
+  const [avatar, billing] = await Promise.all([avatarFor(user), billingFor(user.id)]);
   return (
     <div className="flex flex-col gap-6">
       <div>
         <h1 className="text-2xl font-semibold tracking-tight">Settings</h1>
         <p className="mt-2"><InputsLink page="/app/settings" /></p>
       </div>
-      <Card>
-        <CardHeader><CardTitle>Your setup</CardTitle><CardDescription>Who you are, your facts, your voice, your posting rhythm and writing model ({s.p?.model === "claude-opus-5" ? "Claude Opus 5" : "Claude Sonnet 5"}). Each one is also on Inputs, next to what it drives.</CardDescription></CardHeader>
-        <CardContent className="flex flex-wrap gap-2"><Button variant="outline" render={<Link href="/app/inputs" />}>Edit on Inputs</Button><Button variant="ghost" render={<Link href="/onboarding?edit=1" />}>Walk through setup again</Button></CardContent>
-      </Card>
-      <Card>
-        <CardHeader><CardTitle>Posting</CardTitle><CardDescription>Model use this month: ${s.spent.toFixed(2)} of ${LIMITS.monthlyCapUsd} included.</CardDescription></CardHeader>
-        <CardContent><AutoPublish on={s.p?.auto ?? false} unlocked={remaining === 0} remaining={remaining} /></CardContent>
-      </Card>
-      <Card>
-        <CardHeader>
-          <CardTitle>LinkedIn connection</CardTitle>
-          <CardDescription>
-            {demo ? "Demo mode: posts are recorded here, never sent to LinkedIn."
-              : !linkedinConfigured() ? "Publishing to LinkedIn isn't set up on this server yet. Drafting works; nothing can be published until it is."
-              : !s.conn ? "Not connected. Connect LinkedIn so Cadence can publish the posts you approve; drafting works without it."
-              : `${s.conn.status === "active" ? "Connected" : s.conn.status === "expiring" ? "Ending soon" : "Disconnected"}${s.conn.expiresAt ? ` · renew before ${s.conn.expiresAt.toDateString()}` : ""}.`}
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="flex flex-wrap items-center gap-3">
-          {!demo && linkedinConfigured() && <ConnectLinkedIn label={s.conn ? "Reconnect LinkedIn" : "Connect LinkedIn"} />}
-          <Link href="/app/channels" className="text-sm underline underline-offset-4">X and other channels</Link>
-        </CardContent>
-      </Card>
-      <Card id="assistants">
-        <CardHeader>
-          <CardTitle>Connected assistants</CardTitle>
-          <CardDescription>AI assistants you've connected over MCP, and what each may do. Disconnecting takes effect immediately.</CardDescription>
-        </CardHeader>
-        <CardContent><Connections items={connections} /></CardContent>
-      </Card>
-      <Card id="api">
-        <CardHeader>
-          <CardTitle>API keys</CardTitle>
-          <CardDescription>
-            For the <a className="underline" href="/docs/api">Cadence API</a> and CLI. Each key allows 60 requests a minute. Keys can never publish immediately;
-            approved posts go out on your schedule.
-          </CardDescription>
-        </CardHeader>
-        <CardContent><ApiKeys keys={keys} /></CardContent>
-      </Card>
-      <Card>
-        <CardHeader><CardTitle>Billing</CardTitle><CardDescription>{demo ? "Demo mode: no card, no charges." : `Signed in as ${user.email}. Invoices, card and cancellation are handled by Stripe.`}</CardDescription></CardHeader>
-        {!demo && <CardContent><BillingButton /></CardContent>}
-      </Card>
-      <Card id="delete">
-        <CardHeader><CardTitle>Delete account</CardTitle></CardHeader>
-        <CardContent><DeleteAccount /></CardContent>
-      </Card>
+      <Section title="Account">
+        <Card id="profile">
+          <CardHeader><CardTitle>Profile</CardTitle><CardDescription>Your name and photo, as Cadence shows them. Your LinkedIn photo is used until you upload one.</CardDescription></CardHeader>
+          <CardContent><Profile name={user.name} avatar={avatar.src} uploaded={avatar.uploaded} linkedin={avatar.linkedin} /></CardContent>
+        </Card>
+        <Card id="billing">
+          <CardHeader><CardTitle>Billing</CardTitle><CardDescription>{demo ? "Demo mode: switching plans is simulated." : `Signed in as ${user.email}. Invoices, card and cancellation are handled by Stripe.`}</CardDescription></CardHeader>
+          <CardContent><Billing billing={billing} demo={demo} /></CardContent>
+        </Card>
+      </Section>
+      <Section title="Writing and posting">
+        <Card>
+          <CardHeader><CardTitle>Your setup</CardTitle><CardDescription>Who you are, your facts, your voice, your posting rhythm and writing model ({s.p?.model === "claude-opus-5" ? "Claude Opus 5" : "Claude Sonnet 5"}). Each one is also on Inputs, next to what it drives.</CardDescription></CardHeader>
+          <CardContent className="flex flex-wrap gap-2"><Button variant="outline" render={<Link href="/app/inputs" />}>Edit on Inputs</Button><Button variant="ghost" render={<Link href="/onboarding?edit=1" />}>Walk through setup again</Button></CardContent>
+        </Card>
+        <Card id="import">
+          <CardHeader><CardTitle>Your AI history</CardTitle><CardDescription>Import a ChatGPT or Claude export and review what it suggests for your setup.</CardDescription></CardHeader>
+          <CardContent><Button variant="outline" render={<Link href="/app/import" />}>Import your AI history</Button></CardContent>
+        </Card>
+        <Card>
+          <CardHeader><CardTitle>Posting</CardTitle><CardDescription>Model use this month: ${s.spent.toFixed(2)} of ${LIMITS.monthlyCapUsd} included.</CardDescription></CardHeader>
+          <CardContent><AutoPublish on={s.p?.auto ?? false} unlocked={remaining === 0} remaining={remaining} /></CardContent>
+        </Card>
+      </Section>
+      <Section title="Connections">
+        <Card>
+          <CardHeader>
+            <CardTitle>LinkedIn connection</CardTitle>
+            <CardDescription>
+              {demo ? "Demo mode: posts are recorded here, never sent to LinkedIn."
+                : !linkedinConfigured() ? "Publishing to LinkedIn isn't set up on this server yet. Drafting works; nothing can be published until it is."
+                : !s.conn ? "Not connected. Connect LinkedIn so Cadence can publish the posts you approve; drafting works without it."
+                : `${s.conn.status === "active" ? "Connected" : s.conn.status === "expiring" ? "Ending soon" : "Disconnected"}${s.conn.expiresAt ? ` · renew before ${s.conn.expiresAt.toDateString()}` : ""}.`}
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="flex flex-wrap items-center gap-3">
+            {!demo && linkedinConfigured() && <ConnectLinkedIn label={s.conn ? "Reconnect LinkedIn" : "Connect LinkedIn"} />}
+            <Link href="/app/channels" className="text-sm underline underline-offset-4">X and other channels</Link>
+          </CardContent>
+        </Card>
+        <Card id="assistants">
+          <CardHeader>
+            <CardTitle>Connected assistants</CardTitle>
+            <CardDescription>AI assistants you've connected over MCP, and what each may do. Disconnecting takes effect immediately.</CardDescription>
+          </CardHeader>
+          <CardContent><Connections items={connections} /></CardContent>
+        </Card>
+        <Card id="api">
+          <CardHeader>
+            <CardTitle>API keys</CardTitle>
+            <CardDescription>
+              For the <a className="underline" href="/docs/api">Cadence API</a> and CLI. Each key allows 60 requests a minute. Keys can never publish immediately;
+              approved posts go out on your schedule.
+            </CardDescription>
+          </CardHeader>
+          <CardContent><ApiKeys keys={keys} /></CardContent>
+        </Card>
+      </Section>
+      <Section title="Danger zone">
+        <Card id="delete">
+          <CardHeader><CardTitle>Delete account</CardTitle></CardHeader>
+          <CardContent><DeleteAccount /></CardContent>
+        </Card>
+      </Section>
     </div>
+  );
+}
+
+function Section({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <section aria-label={title} className="flex flex-col gap-4">
+      <h2 className="text-sm font-medium uppercase tracking-wide text-muted-foreground">{title}</h2>
+      {children}
+    </section>
   );
 }

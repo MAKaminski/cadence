@@ -19,7 +19,7 @@ export default async function InputsPage() {
   const user = await requireSubscriber();
   const { signals: s, plan, profile, channels, examplesOn } = await signals(user.id);
   const demo = isDemo();
-  const shown = INPUTS.filter((i) => !i.flag || examplesOn);
+  const shown = INPUTS.filter((i) => (!i.flag || examplesOn) && (i.only !== "annual" || s.billing));
   const head = strategy(s);
   const live = channels.filter((c) => c.status === "live");
 
@@ -48,6 +48,7 @@ export default async function InputsPage() {
       case "auto-publish": return <AutoPublish on={s.autoPublish.on} unlocked={s.autoPublish.left === 0} remaining={s.autoPublish.left} />;
       case "channels": return <E.ChannelsEditor channels={live} demo={demo} />;
       case "channel-drafting": return <E.DraftingEditor channels={live} demo={demo} />;
+      case "link": return <E.LinkEditor href={i.home.href} label={i.id === "history" ? "Import or review suggestions" : i.id === "postNumbers" ? "Add numbers on Published" : `Change on ${i.home.label}`} />;
     }
   };
 

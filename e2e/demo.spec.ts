@@ -36,6 +36,25 @@ test("demo: sign up, trial, set up, check in, approve, publish", async ({ page }
     await expect(page.getByTestId("publication").first()).toContainText("Published", { timeout: 2000 });
   }).toPass({ timeout: 30_000 });
 
+  // Numbers typed in from LinkedIn's analytics are saved and shown as entered by hand. The demo's own
+  // sample captures (1, 3 and 7 "days", seconds apart here) can land after a save, so save until it sticks.
+  await expect(async () => {
+    await page.goto("/app/published");
+    const post = page.getByTestId("publication").first();
+    await post.locator("summary", { hasText: /numbers/ }).click();
+    const form = post.getByTestId("numbers-form");
+    await form.getByLabel("Impressions").fill("2,500");
+    await form.getByLabel("Members reached").fill("1800");
+    await form.getByLabel("Followers gained").fill("3");
+    await form.getByRole("button", { name: "Save numbers" }).click();
+    await expect(page.getByText("Numbers saved")).toBeVisible({ timeout: 5000 });
+    await page.waitForTimeout(2500);
+    await page.reload();
+    await expect(post).toContainText("Entered by you", { timeout: 2000 });
+    await expect(post).toContainText("2,500");
+    await expect(post).toContainText("Followers gained");
+  }).toPass({ timeout: 60_000 });
+
   // Results: sample metrics arrive from the worker within seconds; history makes the trends visible.
   await page.goto("/app/results");
   await page.getByTestId("seed-history").getByRole("button", { name: "Steady" }).click();
