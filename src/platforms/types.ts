@@ -11,7 +11,9 @@ export interface PlatformAdapter {
   fetchMetrics(input: { userId: string; externalId: string; publishedAt: Date }): Promise<Metrics | null>;
 }
 
-export type Metrics = { impressions: number; reactions: number; comments: number; reshares: number; sample?: boolean };
+export type Metrics = { impressions: number; reactions: number; comments: number; reshares: number; sample?: boolean; details?: MetricDetails };
+/** Numbers some platforms add (LinkedIn's post analytics): kept in metrics.platform_data.details. */
+export type MetricDetails = Partial<Record<"membersReached" | "saves" | "sends" | "linkClicks" | "followersGained" | "profileViews", number>>;
 
 /** `definite` = the platform clearly refused, so nothing was posted and it's safe to call it failed.
  *  Otherwise (timeouts, 5xx) the post may exist, and a person has to look. */
