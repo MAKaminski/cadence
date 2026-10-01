@@ -1,5 +1,6 @@
 // The Inputs registry and its direction rules are pure, so each rule is tested on hand-made signals.
-import { test } from "vitest";
+import { afterAll, beforeAll, describe, expect, it, test } from "vitest";
+import { eq } from "drizzle-orm";
 import assert from "node:assert/strict";
 import { advise, GROUPS, INPUTS, inputsOn, strategy, type Signals } from "@/lib/inputs";
 
@@ -62,4 +63,46 @@ test("switches and lists: resume, unlock, connect, rate, check in", () => {
   assert.equal(advise("checkin", s({ daysSinceCheckin: null })).direction, "increase");
   assert.equal(advise("checkin", s({ daysSinceCheckin: 9 })).direction, "increase");
   assert.equal(advise("commentsPerDay", base).direction, "maintain");
+});
+
+// The demo's sample-history scenarios, through the real signals: each must tell the story it claims.
+const url = process.env.TEST_DATABASE_URL;
+(url ? describe : describe.skip)("sample-history scenarios drive the directions", () => {
+  let db: typeof import("@/db"), s: typeof import("@/db/schema");
+  let seed: typeof import("@/services/sample-history"), inputs: typeof import("@/services/inputs");
+  const id = (k: string) => `sample-${k}-${Date.now()}`;
+  const made: string[] = [];
+
+  beforeAll(async () => {
+    Object.assign(process.env, { DATABASE_URL: url, CADENCE_DEMO: "1", BETTER_AUTH_URL: "http://localhost:3000", BETTER_AUTH_SECRET: "test-secret-at-least-thirty-two-characters" });
+    db = await import("@/db"); s = await import("@/db/schema");
+    seed = await import("@/services/sample-history"); inputs = await import("@/services/inputs");
+  });
+  afterAll(async () => { for (const u of made) await db.db.delete(s.user).where(eq(s.user.id, u)); });
+
+  async function directions(scenario: "grow" | "ease") {
+    const U = id(scenario); made.push(U);
+    await db.db.insert(s.user).values({ id: U, name: U, email: `${U}@example.com`, emailVerified: false });
+    await db.asUser(U, (tx) => tx.insert(s.profiles).values({
+      userId: U, about: { role: "CFO", audience: "Founders", goals: "Clients" }, facts: ["Former controller"], voiceSamples: [], topics: ["cash"], noGo: [],
+      onboardingStep: 4, cadence: { perWeek: 3, days: ["Tue", "Wed", "Thu"], time: "09:00", tz: "UTC" },
+    }));
+    await seed.addSampleHistory(U, scenario);
+    const sig = (await inputs.signals(U)).signals;
+    return { strategy: strategy(sig).direction, of: (k: Parameters<typeof advise>[0]) => advise(k, sig).direction };
+  }
+
+  it("ready to grow: more posts and a Monday slot", async () => {
+    const d = await directions("grow");
+    expect(d.strategy).toBe("increase");
+    expect([d.of("postsPerWeek"), d.of("slots"), d.of("autoPublish")]).toEqual(["increase", "increase", "increase"]);
+    expect([d.of("facts"), d.of("model"), d.of("pause")]).toEqual(["maintain", "maintain", "maintain"]);
+  });
+
+  it("overstretched: fewer posts, a cheaper model, fresh topics, facts and samples, and resume", async () => {
+    const d = await directions("ease");
+    expect(d.strategy).toBe("decrease");
+    expect([d.of("postsPerWeek"), d.of("model")]).toEqual(["decrease", "decrease"]);
+    expect([d.of("facts"), d.of("voiceSamples"), d.of("topics"), d.of("pause")]).toEqual(["increase", "increase", "increase", "increase"]);
+  });
 });

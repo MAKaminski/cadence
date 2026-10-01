@@ -52,3 +52,26 @@ test("inputs: every input in one place, edited there or on its home page, each s
   await expect(page.getByText("Step 2 of 3")).toBeVisible();
   await expect(page.locator("#topics")).toHaveValue(/Pricing experiments/);
 });
+
+test("inputs: the demo's sample histories turn the directions", async ({ page }) => {
+  await page.goto("/login");
+  await page.getByRole("button", { name: "Continue as demo user" }).click();
+  await page.getByRole("button", { name: /start demo trial/i }).click();
+  await page.getByRole("button", { name: /fill in the example answers/i }).click();
+  await page.getByRole("button", { name: "Save and continue" }).click();
+  await expect(page.getByText("Step 2 of 3")).toBeVisible();
+  await page.getByRole("button", { name: /fill in the example answers/i }).click();
+  await page.getByRole("button", { name: "Save and continue" }).click();
+  await expect(page.getByText("Step 3 of 3")).toBeVisible();
+  await page.getByRole("button", { name: "Finish setup" }).click();
+  await expect(page.getByRole("heading", { name: "This week" })).toBeVisible();
+
+  // Overstretched: the strategy and posts a week say decrease; pause says resume.
+  await page.goto("/app/inputs");
+  await page.getByTestId("seed-history").getByRole("button", { name: "Overstretched" }).click();
+  await expect(page.getByTestId("strategy").locator('[data-direction="decrease"]')).toBeVisible();
+  await expect(page.getByTestId("input-postsPerWeek").locator('[data-direction="decrease"]')).toBeVisible();
+  await expect(page.getByTestId("input-model").locator('[data-direction="decrease"]')).toBeVisible();
+  await expect(page.getByTestId("input-pause").locator('[data-direction="increase"]')).toBeVisible();
+  await expect(page.getByTestId("seed-history")).toHaveCount(0); // offered only while there's no history
+});

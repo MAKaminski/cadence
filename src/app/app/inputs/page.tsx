@@ -10,6 +10,7 @@ import { signals } from "@/services/inputs";
 import { AdviceLine, DirectionChip, DIRECTIONS } from "@/components/direction";
 import { CheckinForm } from "../checkin-form";
 import { AutoPublish } from "../settings/auto-publish";
+import { SeedButton } from "../results/seed-button";
 import * as E from "./editors";
 
 export const metadata: Metadata = { title: "Inputs" };
@@ -61,6 +62,7 @@ export default async function InputsPage() {
         <div className="flex flex-col gap-2 rounded-xl border p-4" data-testid="strategy">
           <p className="text-sm font-medium">Current strategy</p>
           <AdviceLine a={head} />
+          {demo && !s.weeks.some((w) => w.posts) && <SeedButton />}
         </div>
         <p className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground" aria-label="Direction key">
           {(Object.keys(DIRECTIONS) as (keyof typeof DIRECTIONS)[]).map((d) => <DirectionChip key={d} d={d} />)}
