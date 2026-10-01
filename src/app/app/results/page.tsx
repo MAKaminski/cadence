@@ -1,7 +1,11 @@
 import type { Metadata } from "next";
 import { consistency, impact, outreach, whatWorks } from "@/services/stats";
 import { requireSubscriber } from "@/lib/session";
+import Link from "next/link";
+import { asUser } from "@/db";
+import { platformAccounts } from "@/db/schema";
 import { isDemo } from "@/lib/mode";
+import { PLATFORMS, spec } from "@/platforms/registry";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { ImpactChart, OutreachChart, WhatWorksChart } from "./charts";
@@ -19,13 +23,20 @@ function Stat({ label, value, hint }: { label: string; value: string | number; h
   );
 }
 
-export default async function Results() {
+export default async function Results({ searchParams }: { searchParams: Promise<{ channel?: string }> }) {
   const user = await requireSubscriber();
-  const [weeks, c, posts, works] = await Promise.all([outreach(user.id), consistency(user.id), impact(user.id), whatWorks(user.id)]);
+  // One channel at a time: an X version is the same post, so mixing them would double the counts.
+  const connected = await asUser(user.id, (tx) => tx.selectDistinct({ platform: platformAccounts.platform }).from(platformAccounts));
+  const channels = PLATFORMS.filter((p) => p.id === "linkedin" || connected.some((c) => c.platform === p.id));
+  const asked = (await searchParams).channel;
+  const channel = channels.find((p) => p.id === asked) ?? spec("linkedin");
+  const [weeks, c, posts, works] = await Promise.all([outreach(user.id, 12, channel.id), consistency(user.id), impact(user.id, 30, channel.id), whatWorks(user.id, channel.id)]);
   const sample = posts.some((p) => p.sample);
   const thisWeek = weeks[weeks.length - 1];
   const waiting = <p className="rounded-lg border border-dashed p-6 text-center text-sm text-muted-foreground">
-    Waiting for LinkedIn analytics access. Once LinkedIn approves post analytics for Cadence, each post's numbers appear here 24 and 72 hours after it goes out.
+    {channel.id === "linkedin"
+      ? "Waiting for LinkedIn analytics access. Once LinkedIn approves post analytics for Cadence, each post's numbers appear here 24 and 72 hours after it goes out."
+      : `No ${channel.name} numbers yet. Each post's numbers appear here 24 and 72 hours after it goes out.`}
   </p>;
 
   return (
@@ -34,6 +45,14 @@ export default async function Results() {
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">Results</h1>
           <p className="mt-1 text-muted-foreground">Outreach is what you put out. Impact is what it did.</p>
+          {channels.length > 1 && (
+            <nav aria-label="Channel" className="mt-3 flex gap-1">
+              {channels.map((p) => (
+                <Link key={p.id} href={p.id === "linkedin" ? "/app/results" : `/app/results?channel=${p.id}`} aria-current={p.id === channel.id ? "page" : undefined}
+                  className={`rounded-md px-3 py-1 text-sm ${p.id === channel.id ? "bg-muted font-medium" : "text-muted-foreground hover:bg-muted"}`}>{p.name}</Link>
+              ))}
+            </nav>
+          )}
         </div>
         <div className="ml-auto flex items-center gap-2">
           {sample && <Badge variant="secondary">Demo: sample numbers</Badge>}

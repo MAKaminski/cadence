@@ -35,6 +35,21 @@ export const PLANNER = {
   commentGapMinutes: 20,
 } as const;
 
+/** Examples (src/services/examples.ts): what you can add and how much of it steers drafting. */
+export const EXAMPLES = {
+  /** Largest file per example, uploaded or fetched from a URL. */
+  maxBytes: 5 * 1024 * 1024,
+  /** Examples kept per person; the oldest unrated ones go first past this. */
+  maxPerUser: 200,
+  /** How many rated examples of each kind (up, down) shape a draft. */
+  guidanceMax: 8,
+  /** Fetching a URL: give up after this long or this many redirects. */
+  fetchTimeoutMs: 10_000,
+  maxRedirects: 5,
+  /** Characters of post text kept per example. */
+  bodyChars: 4000,
+} as const;
+
 /** Openers and phrases that read as machine-written. A hit means one rewrite. */
 export const BANNED_PHRASES = [
   "in today's fast-paced world", "game-changer", "game changer", "let that sink in", "unlock the power",
@@ -77,7 +92,8 @@ export const ROUTINES: (Item & { when: string })[] = [
   { name: "Scheduling", when: "On approval", what: "Puts the post into your next free posting slot, in your time zone." },
   { name: "Planning", when: "When you change a number on Plan", what: `One more post or comment goes where it does the least harm (the widest gap, never on the hour); one fewer comes out of the most crowded spot. Nothing is planned between ${PLANNER.quietHours[0]} and ${PLANNER.quietHours[1]}.` },
   { name: "Pause", when: "While posting is paused on Plan", what: "Approved posts keep their place and wait; nothing is published until you resume." },
-  { name: "Publishing", when: "At the scheduled time", what: "Posts the exact approved text through LinkedIn's official API, once. A post that might have gone out is marked for review, never retried." },
+  { name: "Channel versions", when: "Every draft, for each channel you connect", what: "Rewrites the post for the channel (for X: one post within 280 characters as X counts them), runs the same checks against that channel's limits, and keeps it as its own draft for you to approve." },
+  { name: "Publishing", when: "At the scheduled time", what: "Posts the exact approved text through each channel's official API (LinkedIn, X), once. A post that might have gone out is marked for review, never retried." },
   { name: "Results check", when: "24 and 72 hours after each post", what: "Records impressions, reactions, comments and reshares for the Results charts. Starts once LinkedIn approves analytics access; until then the charts say so." },
   { name: "Check-in reminder", when: "The day before your first posting day", what: "An email if you haven't checked in that week." },
   { name: "Connection reminder", when: "7 days and 1 day before LinkedIn access expires", what: "LinkedIn access lasts about 60 days. Signing in again renews it." },

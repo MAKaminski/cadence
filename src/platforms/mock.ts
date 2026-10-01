@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import type { PlatformId } from "./registry";
 import type { Metrics, PlatformAdapter } from "./types";
 
 /** Stable made-up numbers per post, growing with the post's age, so demo charts look like real ones. */
@@ -17,13 +18,17 @@ function sampleMetrics(externalId: string, publishedAt: Date): Metrics {
   };
 }
 
-/** Demo mode's publisher: records the post, sends nothing anywhere. */
-export const mockPlatform: PlatformAdapter = {
-  platform: "linkedin",
+/** Demo mode's publisher: records the post, sends nothing anywhere. Ids contain ":demo-" so Results
+ *  knows to ask this publisher, never a real platform, for their numbers. */
+const MOCKS = new Map<PlatformId, PlatformAdapter>();
+export const mockFor = (platform: PlatformId): PlatformAdapter => MOCKS.get(platform) ?? MOCKS.set(platform, {
+  platform,
   async publish() {
-    return { externalId: `urn:li:share:demo-${randomUUID().slice(0, 8)}` };
+    const id = randomUUID().slice(0, 8);
+    return { externalId: platform === "linkedin" ? `urn:li:share:demo-${id}` : `${platform}:demo-${id}` };
   },
   async fetchMetrics({ externalId, publishedAt }) {
     return sampleMetrics(externalId, publishedAt);
   },
-};
+}).get(platform)!;
+export const mockPlatform = mockFor("linkedin");

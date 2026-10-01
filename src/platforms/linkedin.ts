@@ -10,7 +10,7 @@ export const LINKEDIN_VERSION = "202608";
 
 export const linkedin: PlatformAdapter = {
   platform: "linkedin",
-  async publish({ userId, authorUrn, text }) {
+  async publish({ userId, accountId: authorUrn, text }) {
     // Better Auth keeps the token encrypted and decrypts it here, server-side only.
     const [acc] = await db.select({ id: account.id }).from(account)
       .where(and(eq(account.userId, userId), eq(account.providerId, "linkedin"))).limit(1);

@@ -1,14 +1,16 @@
 import { sql } from "drizzle-orm";
 import {
-  boolean, index, integer, jsonb, numeric, pgEnum, pgPolicy, pgRole, pgTable, primaryKey, text, timestamp, uniqueIndex, uuid,
+  boolean, customType, index, integer, jsonb, numeric, pgEnum, pgPolicy, pgRole, pgTable, primaryKey, text, timestamp, uniqueIndex, uuid,
 } from "drizzle-orm/pg-core";
 import { user } from "./auth-schema";
 
 // ---------------------------------------------------------------------------------------------
-// Platforms. LinkedIn is the only one in code today; every platform-facing row still says which
-// platform it belongs to, so adding one is a new enum value and a new adapter, not a data migration.
-// Shared facts are columns; anything only one platform has goes in `platform_data`.
-export const platform = pgEnum("platform", ["linkedin"]);
+// Platforms. Every channel in src/platforms/registry.ts has a value here, live or planned, so taking a
+// planned channel live is a registry entry and an adapter, not a migration. Every platform-facing row
+// says which platform it belongs to. Shared facts are columns; the rest goes in `platform_data`.
+export const platform = pgEnum("platform", [
+  "linkedin", "x", "threads", "bluesky", "mastodon", "facebook", "instagram", "pinterest", "tiktok", "youtube", "reddit", "google_business",
+]);
 /** Where a push token lives. iOS today; Android would be a new value and a new sender. */
 export const devicePlatform = pgEnum("device_platform", ["ios"]);
 
@@ -31,6 +33,8 @@ export const platformAccounts = pgTable("platform_accounts", {
   handle: text("handle"),
   status: text("status", { enum: ["active", "expiring", "expired", "revoked"] }).notNull().default("active"),
   expiresAt: timestamp("expires_at", { withTimezone: true }),
+  /** Make drafts for this channel. Off keeps the connection but stops new drafts for it. */
+  drafting: boolean("drafting").notNull().default(true),
   platformData: jsonb("platform_data").notNull().default({}),
   createdAt: created(),
 }, (t) => [uniqueIndex("platform_accounts_unique").on(t.userId, t.platform, t.externalId), tenant("platform_accounts")]).enableRLS();
@@ -103,7 +107,7 @@ export const metrics = pgTable("metrics", {
 export const jobs = pgTable("jobs", {
   id: uuid("id").primaryKey().defaultRandom(),
   userId: owner(),
-  kind: text("kind", { enum: ["draft", "publish", "metrics", "remind_checkin", "remind_expiry"] }).notNull(),
+  kind: text("kind", { enum: ["draft", "publish", "metrics", "remind_checkin", "remind_expiry", "analyze_example"] }).notNull(),
   refId: uuid("ref_id"),
   runAt: timestamp("run_at", { withTimezone: true }).notNull(),
   status: text("status", { enum: ["queued", "running", "done", "failed"] }).notNull().default("queued"),
@@ -174,3 +178,59 @@ export const engineSettings = pgTable("engine_settings", {
   volume: jsonb("volume").notNull().default({}),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 }, () => [tenant("engine_settings")]).enableRLS();
+
+// ---------------------------------------------------------------------------------------------
+// Examples: posts and visuals the user points at (a URL) or uploads (5 MB at most), rated thumbs up or
+// down. Each is analysed once for its structure (hook, format, visual, close), and the rated analyses
+// steer drafting: copy what's rated up, avoid what's rated down. Behind the `examples` feature flag.
+
+const bytea = customType<{ data: Buffer; driverData: Buffer }>({ dataType: () => "bytea" });
+
+export const examples = pgTable("examples", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  userId: owner(),
+  source: text("source", { enum: ["url", "upload"] }).notNull(),
+  url: text("url"),
+  title: text("title"),
+  author: text("author"),
+  body: text("body"),                                    // the post text, if any (capped)
+  mediaKind: text("media_kind", { enum: ["none", "image", "gif", "video", "pdf", "other"] }).notNull().default("none"),
+  mediaMime: text("media_mime"),
+  mediaBytes: integer("media_bytes"),
+  rating: text("rating", { enum: ["up", "down"] }),
+  note: text("note"),
+  analysis: jsonb("analysis").notNull().default({}),
+  analysisStatus: text("analysis_status", { enum: ["pending", "done", "failed", "skipped"] }).notNull().default("pending"),
+  analysisError: text("analysis_error"),
+  createdAt: created(),
+  ratedAt: timestamp("rated_at", { withTimezone: true }),
+}, (t) => [index("examples_user").on(t.userId, t.createdAt), tenant("examples")]).enableRLS();
+
+/** The file itself, apart from the row so listing examples never loads megabytes. */
+export const exampleMedia = pgTable("example_media", {
+  exampleId: uuid("example_id").primaryKey().references(() => examples.id, { onDelete: "cascade" }),
+  userId: owner(),
+  mime: text("mime").notNull(),
+  bytes: integer("bytes").notNull(),
+  data: bytea("data").notNull(),
+}, () => [tenant("example_media")]).enableRLS();
+
+/** Feature flags. Global, so no user_id: read and changed by the server and `pnpm flag`, never by a user. */
+export const featureFlags = pgTable("feature_flags", {
+  key: text("key").primaryKey(),
+  enabledForAll: boolean("enabled_for_all").notNull().default(false),
+  allowEmails: jsonb("allow_emails").notNull().default([]),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+/** What people do with a feature, for the usage page: one row per action, with bytes and model cost. */
+export const usageEvents = pgTable("usage_events", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  userId: owner(),
+  feature: text("feature").notNull(),
+  action: text("action").notNull(),
+  bytes: integer("bytes"),
+  costUsd: numeric("cost_usd", { precision: 10, scale: 6 }),
+  meta: jsonb("meta").notNull().default({}),
+  createdAt: created(),
+}, (t) => [index("usage_events_feature").on(t.feature, t.createdAt), index("usage_events_user").on(t.userId, t.createdAt), tenant("usage_events")]).enableRLS();

@@ -10,8 +10,11 @@ import { LIMITS } from "@/lib/catalog";
 import { evaluate, pickBest, type Context, type Evaluation } from "@/engine/evaluate";
 import type { GateRecord } from "@/engine/types";
 import { writer, type Brief, type Model, type Usage } from "@/lib/llm";
+import { spec } from "@/platforms/registry";
 import { enqueue } from "@/lib/jobs";
 import { push } from "@/lib/push";
+import { flagOnFor } from "@/lib/flags";
+import { guidance, guidanceText } from "@/services/examples";
 
 export class CapReached extends Error {}
 
@@ -26,7 +29,7 @@ export async function monthSpend(userId: string) {
 
 /** Check the cap and record the spend in one transaction, holding the user's profile row, so two
  *  jobs for the same user can't both slip under the cap. */
-async function spend(userId: string, run: () => Promise<Usage>): Promise<Usage> {
+export async function spend(userId: string, run: () => Promise<Usage>): Promise<Usage> {
   return asUser(userId, async (tx) => {
     await tx.execute(sql`select 1 from profiles where user_id = ${userId} for update`);
     const [r] = await tx.select({ usd: sql<string>`coalesce(sum(${llmUsage.costUsd}), 0)` }).from(llmUsage).where(gte(llmUsage.createdAt, monthStart()));
@@ -38,13 +41,16 @@ async function spend(userId: string, run: () => Promise<Usage>): Promise<Usage> 
 }
 
 export async function draftFromCheckin(userId: string, inputId: string) {
-  const { profile, input, recent, account } = await asUser(userId, async (tx) => ({
+  const { profile, input, recent, accounts } = await asUser(userId, async (tx) => ({
     profile: (await tx.select().from(profiles).where(eq(profiles.userId, userId)))[0],
     input: (await tx.select().from(inputs).where(eq(inputs.id, inputId)))[0],
     recent: (await tx.select({ body: drafts.body }).from(drafts)
       .where(inArray(drafts.status, ["scheduled", "published"])).orderBy(desc(drafts.createdAt)).limit(LIMITS.repeatLookback)).map((r) => r.body),
-    account: (await tx.select().from(platformAccounts).where(and(eq(platformAccounts.platform, "linkedin"), eq(platformAccounts.status, "active"))).limit(1))[0],
+    accounts: await tx.select().from(platformAccounts).where(eq(platformAccounts.status, "active")),
   }));
+  const account = accounts.find((a) => a.platform === "linkedin");
+  // Other connected channels with drafting on get their own version of every post (X today).
+  const channels = accounts.filter((a) => a.platform !== "linkedin" && a.drafting && spec(a.platform).status === "live" && !spec(a.platform).needsMedia);
   if (!profile || !input) return;
 
   const cadence = profile.cadence as { perWeek: number };
@@ -54,6 +60,10 @@ export async function draftFromCheckin(userId: string, inputId: string) {
     topics: profile.topics as string[], noGo: profile.noGo as string[],
     notes: input.body, recent, count: Math.min(Math.max(cadence.perWeek ?? 3, 1), 5), model: profile.model as Model,
   };
+  // Rated examples steer the writer when the feature is on for this person.
+  const taught = (await flagOnFor("examples", userId)) ? await guidance(userId) : null;
+  const examplesText = taught && guidanceText(taught);
+  if (examplesText) brief.examples = examplesText;
   const ctx: Context = { facts: brief.facts, notes: [brief.notes], topics: brief.topics, noGo: brief.noGo, recent };
   const w = writer();
 
@@ -85,18 +95,63 @@ export async function draftFromCheckin(userId: string, inputId: string) {
       angle: post.angle, why: post.why, checks: best.checks, adjustments,
       verdict: best.verdict === "held" ? "held" : "ok", rewritten,
       model: first.model, costUsd: Math.round(cost * 10000) / 10000, variantsConsidered: post.variants.length,
+      ...(examplesText && taught ? { examples: { up: taught.up, down: taught.down } } : {}),
     };
     if (gate.verdict === "held") held++; else ready++;
-    await asUser(userId, async (tx) => {
+    const sourceId = await asUser(userId, async (tx) => {
       const [d] = await tx.insert(drafts).values({
         userId, platform: "linkedin", platformAccountId: account?.id ?? null, body: best.text, gate,
         status: gate.verdict === "held" ? "held" : "draft", inputIds: [inputId],
       }).returning({ id: drafts.id });
       // Automatic posting: only clean drafts, only once the user has switched it on.
       if (profile.autoPublish && gate.verdict === "ok") await approveInTx(tx, userId, d.id);
+      return d.id;
     });
+
+    for (const ch of channels) {
+      const r = await adaptDraft(userId, brief, ctx, best.text, ch, post, sourceId, inputId, profile.autoPublish);
+      if (r === "held") held++; else ready++;
+    }
   }
   await notifyDrafts(userId, ready, held);
+}
+
+type Account = typeof platformAccounts.$inferSelect;
+
+/** One post rewritten for another channel, checked against that channel's limits, rewritten once if
+ *  it misses, and saved as its own draft (approved, scheduled and published on its own). */
+async function adaptDraft(userId: string, brief: Brief, ctx: Context, source: string, ch: Account, post: { angle: string; why: string },
+  sourceId: string, inputId: string, autoPublish: boolean): Promise<"ok" | "held"> {
+  const s = spec(ch.platform), w = writer();
+  const recent = await asUser(userId, async (tx) => (await tx.select({ body: drafts.body }).from(drafts)
+    .where(and(eq(drafts.platform, ch.platform), inArray(drafts.status, ["scheduled", "published"]))).orderBy(desc(drafts.createdAt)).limit(LIMITS.repeatLookback)).map((r) => r.body));
+  const cctx = { ...ctx, recent };
+  let text = "";
+  const first = await spend(userId, async () => { const r = await w.adapt(brief, source, s); text = r.text; return r.usage; });
+  let cost = first.costUsd, rewritten = false;
+  let ev = evaluate(text, cctx, s);
+  const adjustments = [`Written for ${s.name} from the LinkedIn draft`, ...ev.fixes];
+  if (ev.verdict === "rewrite") {
+    const problems = ev.checks.filter((c) => c.outcome === "rewrite").map((c) => `${c.label}: ${c.detail ?? ""}`);
+    const u = await spend(userId, async () => { const r = await w.adapt(brief, source, s, problems); text = r.text; return r.usage; });
+    cost += u.costUsd; rewritten = true;
+    ev = evaluate(text, cctx, s);
+    adjustments.push(`Rewritten once to fix: ${problems.map((p) => p.split(":")[0].toLowerCase()).join(", ")}`, ...ev.fixes);
+    if (ev.verdict === "rewrite") ev = { ...ev, verdict: "held", checks: ev.checks.map((c) => (c.outcome === "rewrite" ? { ...c, outcome: "held" as const, detail: `${c.detail ?? ""} (still after one rewrite)` } : c)) };
+  }
+  const gate: GateRecord = {
+    angle: post.angle, why: post.why, checks: ev.checks, adjustments,
+    verdict: ev.verdict === "held" ? "held" : "ok", rewritten,
+    model: first.model, costUsd: Math.round(cost * 10000) / 10000, variantsConsidered: 1, adaptedFrom: sourceId,
+  };
+  await asUser(userId, async (tx) => {
+    const [d] = await tx.insert(drafts).values({
+      userId, platform: ch.platform, platformAccountId: ch.id, body: ev.text, gate,
+      status: gate.verdict === "held" ? "held" : "draft", inputIds: [inputId],
+    }).returning({ id: drafts.id });
+    if (autoPublish && gate.verdict === "ok") await approveInTx(tx, userId, d.id);
+  });
+  return gate.verdict;
 }
 
 // Called at the end of draftFromCheckin (below) once every draft is saved.
@@ -114,8 +169,9 @@ export async function approveInTx(tx: Tx, userId: string, draftId: string, now =
   if (!d || !["draft", "held"].includes(d.status)) throw new Error("This draft can't be approved in its current state.");
   const [p] = await tx.select({ cadence: profiles.cadence }).from(profiles).where(eq(profiles.userId, userId));
   const taken = [
-    ...(await tx.select({ at: drafts.scheduledFor }).from(drafts).where(eq(drafts.status, "scheduled"))).map((r) => r.at),
-    ...(await tx.select({ at: publications.publishedAt }).from(publications).where(gte(publications.publishedAt, new Date(now.getTime() - 8 * 86_400_000)))).map((r) => r.at),
+    // Slots are per channel: a LinkedIn post and its X version can go out in the same slot.
+    ...(await tx.select({ at: drafts.scheduledFor }).from(drafts).where(and(eq(drafts.status, "scheduled"), eq(drafts.platform, d.platform)))).map((r) => r.at),
+    ...(await tx.select({ at: publications.publishedAt }).from(publications).where(and(eq(publications.platform, d.platform), gte(publications.publishedAt, new Date(now.getTime() - 8 * 86_400_000))))).map((r) => r.at),
   ].filter((x): x is Date => Boolean(x));
   // The planner's posting slots (src/services/plan.ts); the first time, they are made from setup.
   const [slot] = nextSlotTimes(await postingSlots(tx, userId), (p.cadence as Cadence).tz, now, taken);

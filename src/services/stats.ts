@@ -3,6 +3,7 @@
 import { eq, sql } from "drizzle-orm";
 import { asUser } from "@/db";
 import { profiles } from "@/db/schema";
+import type { PlatformId } from "@/platforms/registry";
 
 export type OutreachWeek = { week: string; posts: number; target: number };
 export type Consistency = { streakWeeks: number; approved: number; edited: number; held: number; skipped: number; medianHoursToPost: number | null };
@@ -18,7 +19,9 @@ async function settings(userId: string) {
 const rows = <T>(r: unknown) => r as T[];
 
 /** Posts published per week (the user's weeks, Monday start) against their weekly target. */
-export async function outreach(userId: string, weeks = 12): Promise<OutreachWeek[]> {
+// Every number is per channel (LinkedIn unless asked): an X version is the same post, so counting it
+// would double a week's posts against the target.
+export async function outreach(userId: string, weeks = 12, platform: PlatformId = "linkedin"): Promise<OutreachWeek[]> {
   const { perWeek, tz } = await settings(userId);
   const r = rows<{ week: string; posts: number }>(await asUser(userId, (tx) => tx.execute(sql`
     with w as (
@@ -26,7 +29,7 @@ export async function outreach(userId: string, weeks = 12): Promise<OutreachWeek
                              date_trunc('week', (now() at time zone ${tz})), interval '1 week') as week)
     select to_char(w.week, 'YYYY-MM-DD') as week, count(p.id)::int as posts
     from w left join publications p
-      on p.status = 'published' and date_trunc('week', p.published_at at time zone ${tz}) = w.week
+      on p.status = 'published' and p.platform::text = ${platform} and date_trunc('week', p.published_at at time zone ${tz}) = w.week
     group by w.week order by w.week`)));
   return r.map((x) => ({ ...x, target: perWeek }));
 }
@@ -46,20 +49,20 @@ export async function consistency(userId: string): Promise<Consistency> {
       (select percentile_cont(0.5) within group (order by extract(epoch from p.published_at - i.created_at) / 3600)
          from publications p join drafts d on d.id = p.draft_id
          join inputs i on i.id = (d.input_ids->>0)::uuid
-         where p.status = 'published')::float as "medianHoursToPost"
-    from drafts where created_at >= date_trunc('month', now())`)));
+         where p.status = 'published' and p.platform = 'linkedin')::float as "medianHoursToPost"
+    from drafts where created_at >= date_trunc('month', now()) and platform = 'linkedin'`)));
   return { streakWeeks: streak, ...c, medianHoursToPost: c.medianHoursToPost == null ? null : Math.round(c.medianHoursToPost * 10) / 10 };
 }
 
 /** Latest numbers per published post, oldest first, with a 4-post moving engagement rate. */
-export async function impact(userId: string, limit = 30): Promise<ImpactPost[]> {
+export async function impact(userId: string, limit = 30, platform: PlatformId = "linkedin"): Promise<ImpactPost[]> {
   const r = rows<{ publicationId: string; publishedAt: Date; body: string; impressions: number; engagements: number; sample: boolean }>(await asUser(userId, (tx) => tx.execute(sql`
     select * from (
       select distinct on (p.id) p.id as "publicationId", p.published_at as "publishedAt", d.body,
         m.impressions, (coalesce(m.reactions,0) + coalesce(m.comments,0) + coalesce(m.reshares,0))::int as engagements,
         coalesce((m.platform_data->>'sample')::boolean, false) as sample
       from publications p join drafts d on d.id = p.draft_id join metrics m on m.publication_id = p.id
-      where p.status = 'published' order by p.id, m.captured_at desc) latest
+      where p.status = 'published' and p.platform::text = ${platform} order by p.id, m.captured_at desc) latest
     order by "publishedAt" desc limit ${limit}`))).reverse();
   return r.map((x, i) => {
     const rate = x.impressions ? x.engagements / x.impressions : 0;
@@ -73,14 +76,14 @@ export async function impact(userId: string, limit = 30): Promise<ImpactPost[]> 
 }
 
 /** Average engagement rate by angle, weekday and length band. Groups need at least one post. */
-export async function whatWorks(userId: string): Promise<WhatWorks> {
+export async function whatWorks(userId: string, platform: PlatformId = "linkedin"): Promise<WhatWorks> {
   const { tz } = await settings(userId);
   const r = rows<{ dimension: WhatWorks[number]["dimension"]; label: string; posts: number; rate: number }>(await asUser(userId, (tx) => tx.execute(sql`
     with latest as (
       select distinct on (p.id) p.id, p.published_at, d.body, d.gate->>'angle' as angle, m.impressions,
         coalesce(m.reactions,0) + coalesce(m.comments,0) + coalesce(m.reshares,0) as eng
       from publications p join drafts d on d.id = p.draft_id join metrics m on m.publication_id = p.id
-      where p.status = 'published' and m.impressions > 0 order by p.id, m.captured_at desc)
+      where p.status = 'published' and p.platform::text = ${platform} and m.impressions > 0 order by p.id, m.captured_at desc)
     select 'angle' as dimension, coalesce(angle, 'Other') as label, count(*)::int as posts, avg(eng::float / impressions) as rate from latest group by 2
     union all
     select 'weekday', to_char(published_at at time zone ${tz}, 'Dy'), count(*)::int, avg(eng::float / impressions) from latest group by 2

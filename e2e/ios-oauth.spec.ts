@@ -1,7 +1,7 @@
 // The iOS app's sign-in, played by the test: it registers itself as a native client with a custom-scheme
 // redirect, sends the user through sign-in and consent, gets a token for the REST API (not the MCP
 // server), refreshes it, and uses it. Runs against `pnpm demo`.
-import { expect, test } from "@playwright/test";
+import { expect, test } from "./test";
 import { createHash, randomBytes } from "node:crypto";
 
 const BASE = "http://localhost:3000";

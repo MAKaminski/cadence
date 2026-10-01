@@ -5,6 +5,7 @@ import { zodOutputFormat } from "@anthropic-ai/sdk/helpers/zod";
 import { z } from "zod";
 import { BANNED_PHRASES, LIMITS } from "@/lib/catalog";
 import { isDemo } from "@/lib/mode";
+import { lengthOn, type PlatformSpec } from "@/platforms/registry";
 
 export type Model = "claude-sonnet-5" | "claude-opus-5";
 
@@ -15,6 +16,8 @@ export type Brief = {
   about: { role?: string; audience?: string; goals?: string };
   facts: string[]; voiceSamples: string[]; topics: string[]; noGo: string[];
   notes: string; recent: string[]; count: number; model: Model;
+  /** What the person's rated examples teach (src/services/examples.ts guidanceText), or absent. */
+  examples?: string;
 };
 export type Candidate = { angle: string; why: string; variants: string[] };
 export type Usage = { model: string; tokensIn: number; tokensOut: number; costUsd: number };
@@ -23,7 +26,12 @@ export interface Writer {
   name: string;
   write(b: Brief): Promise<{ posts: Candidate[]; usage: Usage }>;
   rewrite(b: Brief, draft: string, problems: string[]): Promise<{ text: string; usage: Usage }>;
+  /** The same post for another channel (X today): its length, its conventions, the same facts. */
+  adapt(b: Brief, source: string, to: Channel, problems?: string[]): Promise<{ text: string; usage: Usage }>;
 }
+
+/** What the writer needs to know about the channel it adapts a post for (from src/platforms/registry.ts). */
+export type Channel = Pick<PlatformSpec, "id" | "name" | "limits">;
 
 export function writer(): Writer {
   return isDemo() || !process.env.ANTHROPIC_API_KEY ? mockWriter : claudeWriter;
@@ -78,7 +86,7 @@ const claudeWriter: Writer = {
       system: [{ type: "text", text: RULES }, { type: "text", text: profileBlock(b), cache_control: { type: "ephemeral" } }],
       messages: [{
         role: "user",
-        content: `NOTES (this week):\n${b.notes}\n\nRECENT posts:\n${b.recent.slice(0, 5).map((r) => `--- \n${r}`).join("\n") || "(none)"}\n\nWrite ${b.count} post${b.count > 1 ? "s" : ""}, each on a different angle from the notes, with ${LIMITS.variants} variants each.`,
+        content: `NOTES (this week):\n${b.notes}\n\nRECENT posts:\n${b.recent.slice(0, 5).map((r) => `--- \n${r}`).join("\n") || "(none)"}${b.examples ? `\n\nEXAMPLES:\n${b.examples}` : ""}\n\nWrite ${b.count} post${b.count > 1 ? "s" : ""}, each on a different angle from the notes, with ${LIMITS.variants} variants each.`,
       }],
       output_config: { format: zodOutputFormat(Output) },
     });
@@ -92,6 +100,23 @@ const claudeWriter: Writer = {
       thinking: { type: "adaptive" },
       system: [{ type: "text", text: RULES }, { type: "text", text: profileBlock(b), cache_control: { type: "ephemeral" } }],
       messages: [{ role: "user", content: `Revise this post to fix: ${problems.join("; ")}. Keep the point and the voice. Reply with the post only.\n\n${draft}` }],
+    });
+    const text = res.content.flatMap((c) => (c.type === "text" ? [c.text] : [])).join("").trim();
+    return { text, usage: cost(b.model, res.usage) };
+  },
+  async adapt(b, source, to, problems = []) {
+    const L = to.limits;
+    const res = await client().messages.create({
+      model: b.model,
+      max_tokens: 4000,
+      system: [{ type: "text", text: RULES }, { type: "text", text: profileBlock(b), cache_control: { type: "ephemeral" } }],
+      messages: [{ role: "user", content: [
+        `Rewrite this LinkedIn post for ${to.name}. The same point, the same facts, nothing new.`,
+        `${to.name} rules: at most ${L.targetChars} characters${to.limits.count === "x" ? " as X counts them (a link is 23, an emoji 2)" : ""}, hard limit ${L.hardChars}. Plain text. ${L.maxHashtags ? `At most ${L.maxHashtags} hashtags, or none.` : "No hashtags."} Lead with the sharpest line; cut everything that doesn't carry the point.`,
+        problems.length ? `Fix: ${problems.join("; ")}.` : "",
+        "Reply with the post only.",
+        `\n${source}`,
+      ].filter(Boolean).join("\n") }],
     });
     const text = res.content.flatMap((c) => (c.type === "text" ? [c.text] : [])).join("").trim();
     return { text, usage: cost(b.model, res.usage) };
@@ -135,5 +160,17 @@ export const mockWriter: Writer = {
     const lines = draft.split("\n\n");
     const text = lines.slice(1).join("\n\n").replace(/here's the thing about/gi, "About");
     return { text, usage: { model: "demo", tokensIn: 800, tokensOut: 300, costUsd: 0 } };
+  },
+  async adapt(_b, source, to) {
+    // Whole sentences from the top until the channel's target is reached; no markdown, no hashtags.
+    const plain = source.replace(/\*\*|__|`/g, "").replace(/(^|\s)#[\p{L}\p{N}_]+/gu, "").trim();
+    let text = "";
+    for (const s of sentences(plain)) {
+      const next = text ? `${text} ${s}` : s;
+      if (lengthOn(to, next) > to.limits.targetChars) break;
+      text = next;
+    }
+    if (!text) text = [...plain].slice(0, to.limits.targetChars - 1).join("").trimEnd() + "…";
+    return { text, usage: { model: "demo", tokensIn: 600, tokensOut: 120, costUsd: 0 } };
   },
 };

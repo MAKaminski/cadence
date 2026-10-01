@@ -10,6 +10,7 @@ import { drafts, platformAccounts, publications } from "@/db/schema";
 import { bodyHash } from "@/lib/drafting";
 import { FAULT } from "@/lib/mode";
 import { adapterFor, PublishError } from "@/platforms";
+import { spec } from "@/platforms/registry";
 import { enqueue } from "@/lib/jobs";
 import { push } from "@/lib/push";
 import { isDemo } from "@/lib/mode";
@@ -42,8 +43,8 @@ export async function publishDraft(userId: string, draftId: string): Promise<str
     .where(and(eq(platformAccounts.platform, d.platform), eq(platformAccounts.status, "active"))).limit(1))[0]);
 
   try {
-    if (!acc) throw new PublishError("No active LinkedIn connection. Connect LinkedIn in Settings.", true);
-    const out = await adapterFor(d.platform, acc).publish({ userId, authorUrn: acc.externalId, text: d.body });
+    if (!acc) throw new PublishError(`No active ${spec(d.platform).name} connection. Connect it on Channels.`, true);
+    const out = await adapterFor(d.platform, acc).publish({ userId, accountId: acc.externalId, text: d.body });
     if (FAULT() === "after_publish") process.exit(86); // publish-safety test: die after the platform said yes
     await asUser(userId, async (tx) => {
       await tx.update(publications).set({ status: "published", externalPostId: out.externalId, publishedAt: new Date() }).where(eq(publications.id, pubId));

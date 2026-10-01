@@ -79,10 +79,17 @@ export default async function ThisWeek() {
             {data.checkins.length ? "No drafts waiting. Check in again whenever you have something new." : "No drafts yet. Save a check-in above to get your first ones."}
           </p>
         )}
-        {list.map((d) => (
-          <DraftCard key={`${d.id}-${d.version}-${d.status}`} d={{ id: d.id, body: d.body, status: d.status, version: d.version, scheduledFor: d.scheduledFor?.toISOString() ?? null, gate: d.gate as GateRecord, tz }} />
+        {byPost(list).map((d) => (
+          <DraftCard key={`${d.id}-${d.version}-${d.status}`} d={{ id: d.id, platform: d.platform, body: d.body, status: d.status, version: d.version, scheduledFor: d.scheduledFor?.toISOString() ?? null, gate: d.gate as GateRecord, tz }} />
         ))}
       </section>
     </div>
   );
+}
+
+/** Each channel version (X…) right after the LinkedIn draft it was written from. */
+function byPost<T extends { id: string; gate: unknown }>(list: T[]): T[] {
+  const from = (d: T) => (d.gate as GateRecord).adaptedFrom;
+  const roots = list.filter((d) => !from(d) || !list.some((p) => p.id === from(d)));
+  return roots.flatMap((r) => [r, ...list.filter((d) => from(d) === r.id)]);
 }

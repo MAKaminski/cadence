@@ -1,5 +1,5 @@
 import { readFileSync } from "node:fs";
-import { expect, test } from "@playwright/test";
+import { expect, test } from "./test";
 
 // Email sign-up against a running demo whose output goes to demo.log (as CI starts it): demo mode
 // prints emails instead of sending them, so the link is read back from that log.

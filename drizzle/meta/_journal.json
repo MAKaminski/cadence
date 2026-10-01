@@ -64,6 +64,20 @@
       "when": 1790864160950,
       "tag": "0008_planner",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1790872970436,
+      "tag": "0009_examples",
+      "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1790874039073,
+      "tag": "0010_channels",
+      "breakpoints": true
     }
   ]
 }

@@ -1,9 +1,11 @@
-/** A social platform Cadence can post to. LinkedIn is the only one today; a new platform is a new
- *  enum value in app-schema.ts plus one of these. */
+import type { PlatformId } from "./registry";
+
+/** A social platform Cadence can post to. Each live channel in ./registry.ts has one of these. */
 export interface PlatformAdapter {
-  platform: "linkedin";
-  /** Publish plain text. Returns the platform's id for the post and a public URL if there is one. */
-  publish(input: { userId: string; authorUrn: string; text: string }): Promise<{ externalId: string; url?: string }>;
+  platform: PlatformId;
+  /** Publish plain text as the connected account (`accountId` is platform_accounts.external_id).
+   *  Returns the platform's id for the post and a public URL if there is one. */
+  publish(input: { userId: string; accountId: string; text: string }): Promise<{ externalId: string; url?: string }>;
   /** Current numbers for one post, or null when the platform won't share them (e.g. analytics access
    *  not granted yet). `sample` marks made-up demo numbers, which the UI always labels. */
   fetchMetrics(input: { userId: string; externalId: string; publishedAt: Date }): Promise<Metrics | null>;

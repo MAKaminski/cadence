@@ -59,7 +59,10 @@ export default async function Settings() {
               : `${s.conn.status === "active" ? "Connected" : s.conn.status === "expiring" ? "Ending soon" : "Disconnected"}${s.conn.expiresAt ? ` · renew before ${s.conn.expiresAt.toDateString()}` : ""}.`}
           </CardDescription>
         </CardHeader>
-        {!demo && linkedinConfigured() && <CardContent><ConnectLinkedIn label={s.conn ? "Reconnect LinkedIn" : "Connect LinkedIn"} /></CardContent>}
+        <CardContent className="flex flex-wrap items-center gap-3">
+          {!demo && linkedinConfigured() && <ConnectLinkedIn label={s.conn ? "Reconnect LinkedIn" : "Connect LinkedIn"} />}
+          <Link href="/app/channels" className="text-sm underline underline-offset-4">X and other channels</Link>
+        </CardContent>
       </Card>
       <Card id="assistants">
         <CardHeader>

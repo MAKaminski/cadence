@@ -5,6 +5,20 @@ All notable changes to Cadence. The format follows [Keep a Changelog](https://ke
 ## [Unreleased]
 
 ### Added
+- **Channels** (`/app/channels`): connect where your posts go, in one click, with no API keys.
+  - **X is the first new channel.** Connect X (OAuth 2.0 with PKCE, through the server's one X app; the token is refreshed automatically). Every LinkedIn draft then gets an **X version**: rewritten to fit one post (280 characters as X counts them, where a link is 23 and most emoji 2), run through the same fact, no-go and repeat checks against X's limits, rewritten once if it misses, and kept as its own draft. Approve, edit, skip and post each version separately. X versions go out in your posting slots like LinkedIn posts; the two channels don't take each other's slots. Results reads X's public numbers (impressions, likes, replies, reposts and quotes).
+  - A per-channel switch turns versions off without disconnecting; Disconnect removes the token.
+  - **Coming soon** (listed, not connectable yet): Threads, Bluesky, Mastodon, Facebook Pages, Instagram, Pinterest, TikTok, YouTube, Reddit, Google Business Profile.
+  - One registry (`src/platforms/registry.ts`) describes every channel: its sign-in provider, the server keys it needs, its length limits and how it counts them, whether it needs media, and its post URLs. Taking a planned channel live is one registry entry, one adapter and one provider; the database already has every channel's value (migration 0010).
+  - Drafts and posts in the API carry `platform`.
+- **Examples** (`/app/examples`, behind the `examples` feature flag): paste a link to a post or visual, or upload one, and give it a thumbs up or down.
+  - Links are fetched by the server with a guard: http(s) on ports 80/443 only, every address checked after DNS at connect time (no private, loopback or link-local addresses), at most 5 redirects each checked again, 10 s timeout. A page's title, author, text and its preview image or video are kept; a direct link to an image, GIF, video or PDF is kept as the file.
+  - Uploads: PNG, JPEG, WebP, GIF, MP4, WebM, MOV or PDF, **5 MB at most per file** (link media too). The type is read from the file's bytes, not its name; SVG is refused. Files are served only to their owner, with `nosniff` and a sandboxing CSP.
+  - Each example is analysed once (the person's chosen model, against the monthly allowance): format, hook, shape, length, tone, visual and its motion, the close and whether it is engagement bait, strengths, weaknesses and one transferable technique. Technique only, never the topic or wording.
+  - **Ratings steer drafting**: up to 8 liked and 8 disliked analyses become a "do more of / avoid" block in each drafting brief (outside the cached system prompt). The draft's "Why this draft" says how many steered it. The page shows what the ratings currently teach.
+  - Up to 200 examples per person; past that the oldest unrated one makes room.
+- **Feature flags** (`feature_flags` table, `pnpm flag`): off unless on for everyone or the account's email is allow-listed. Demo mode turns every flag on. Nav items for flagged features show only to people who have them.
+- **Usage measurement** (`usage_events` table): every add, upload, rating, analysis (with its cost), failure and delete is one row. `/app/admin/usage`, for emails in `CADENCE_ADMINS`, shows the flag's state, people, actions, stored files and size, analysis cost, a 30-day daily chart and the most active accounts.
 - **Plan** (`/app/plan`): how much you post and comment, and when, per user.
   - **Posts a week**, 0–21: a stepper shows what one more or one fewer would change before you apply it, across three daily slots (A, B, C). Each slot has its own time and days, and a cell turns one slot on or off for one day. Approved posts go into the next free slot of any slot that's on.
   - **Comments a day**, 0–40, inside a window you set and at least N minutes apart. One more goes in the widest gap, never on the hour; one fewer comes out of the most crowded spot; "Space them evenly" re-spaces them. These are plans for the optional Cadence runner and nothing runs them yet.
@@ -20,6 +34,7 @@ All notable changes to Cadence. The format follows [Keep a Changelog](https://ke
 - iOS CI workflow (path-filtered), App Store submission pack (`docs/ios-app-store.md`), privacy manifest.
 
 ### Fixed
+- Connecting LinkedIn (or X) from inside the app no longer fails when that account's email differs from your Cadence email.
 - A missing or placeholder LinkedIn client ID (e.g. `preview`) no longer sends people to LinkedIn's error page ("The passed in client_id is invalid"). LinkedIn sign-in and Connect are hidden, with a plain note, until real keys are set; the server logs what to fix at start, and `deploy/deploy.sh` refuses to deploy with a placeholder (`deploy/check-env.sh`).
 - Sign-in names the app being connected instead of "your AI assistant".
 

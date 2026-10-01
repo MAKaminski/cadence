@@ -5,6 +5,7 @@ import { claim, finish, recoverLost, type Job } from "@/lib/jobs";
 import { draftFromCheckin, CapReached } from "@/lib/drafting";
 import { captureMetrics, publishDraft } from "@/lib/publishing";
 import { remindCheckin, remindExpiry, sweep } from "@/lib/reminders";
+import { runAnalysis } from "@/services/examples";
 
 const POLL_MS = Number(process.env.WORKER_POLL_MS ?? 5000);
 const once = process.argv.includes("--once");
@@ -16,6 +17,7 @@ async function run(job: Job): Promise<string | void> {
     case "remind_checkin": return remindCheckin(job.userId);
     case "remind_expiry": return remindExpiry(job.userId, job.refId!);
     case "metrics": return captureMetrics(job.userId, job.refId!);
+    case "analyze_example": return runAnalysis(job.userId, job.refId!);
   }
 }
 

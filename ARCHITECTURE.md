@@ -300,6 +300,38 @@ erDiagram
     jsonb volume
     timestamp_with_time_zone updated_at
   }
+  example_media {
+    uuid example_id PK
+    text user_id
+    text mime
+    integer bytes
+    bytea data
+  }
+  examples {
+    uuid id PK
+    text user_id
+    text source
+    text url
+    text title
+    text author
+    text body
+    text media_kind
+    text media_mime
+    integer media_bytes
+    text rating
+    text note
+    jsonb analysis
+    text analysis_status
+    text analysis_error
+    timestamp_with_time_zone created_at
+    timestamp_with_time_zone rated_at
+  }
+  feature_flags {
+    text key PK
+    boolean enabled_for_all
+    jsonb allow_emails
+    timestamp_with_time_zone updated_at
+  }
   holds {
     text user_id
     text name
@@ -355,6 +387,7 @@ erDiagram
     text handle
     text status
     timestamp_with_time_zone expires_at
+    boolean drafting
     jsonb platform_data
     timestamp_with_time_zone created_at
   }
@@ -394,6 +427,16 @@ erDiagram
     text note
     timestamp_with_time_zone updated_at
   }
+  usage_events {
+    uuid id PK
+    text user_id
+    text feature
+    text action
+    integer bytes
+    numeric_10__6_ cost_usd
+    jsonb meta
+    timestamp_with_time_zone created_at
+  }
   user ||--o{ account : "user_id"
   oauth_client ||--o{ oauth_access_token : "client_id"
   session ||--o{ oauth_access_token : "session_id"
@@ -412,6 +455,9 @@ erDiagram
   user ||--o{ drafts : "user_id"
   platform_accounts ||--o{ drafts : "platform_account_id"
   user ||--o{ engine_settings : "user_id"
+  examples ||--o{ example_media : "example_id"
+  user ||--o{ example_media : "user_id"
+  user ||--o{ examples : "user_id"
   user ||--o{ holds : "user_id"
   user ||--o{ inputs : "user_id"
   user ||--o{ jobs : "user_id"
@@ -424,5 +470,6 @@ erDiagram
   user ||--o{ publications : "user_id"
   drafts ||--o{ publications : "draft_id"
   user ||--o{ schedules : "user_id"
+  user ||--o{ usage_events : "user_id"
 ```
 <!-- ERD:END -->
