@@ -17,7 +17,8 @@ set -euo pipefail
 ADMIN_KEY="${SSH_KEY:-$HOME/.ssh/cadence_oracle}"
 KEY="$HOME/.ssh/cadence_deploy"
 IP="${CADENCE_HOST#*@}"
-REPO="${REPO:-$(git remote get-url origin 2>/dev/null | sed -E 's#(git@github.com:|https://github.com/)##; s#\.git$##' || true)}"
+# owner/name from the origin remote (an SSH or HTTPS GitHub URL), when run inside a clone.
+REPO="${REPO:-$(git remote get-url origin 2>/dev/null | sed -E 's#^.*github\.com[:/]##; s#\.git$##' || true)}"
 admin() { ssh -i "$ADMIN_KEY" -o BatchMode=yes "$CADENCE_HOST" "$@"; }
 
 echo "1/4 Deploy key"
