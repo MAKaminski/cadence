@@ -9,6 +9,34 @@ All notable changes to Cadence. The format follows [Keep a Changelog](https://ke
 - `/app/inputs` no longer logs an error for someone who hasn't finished setup (they were already sent to setup).
 
 ### Added
+- **Help: a demo video and FAQs for every action** (`/help`, public, linked from the site header and footer and from the app's menu).
+  - 13 topics in four groups: Getting started, Every week, Tuning Cadence, Seeing what works.
+  - Each topic has a short captioned video, the steps and its own questions, plus the site-wide FAQ. FAQPage structured data is included for search.
+  - The videos are recorded from the app in demo mode by `pnpm help:record [topic…]` (`scripts/help/record.ts`; Playwright drives the app, ffmpeg encodes). Each clip starts from a demo account already in the right state, so it shows only its own action. They are 2.8 MB in total, in `public/help`.
+  - The topics live in `src/lib/help.ts`, which the page and the recorder share. A test fails if a topic has no video or poster.
+- **Bring your LinkedIn Engine history** (Import page): one file brings in every post LinkedIn Engine published, with its pillar, hook, visual, rubric score and every capture of its numbers.
+  - `scripts/engine-export.mjs` writes the file. It reads the engine's D1 database through Cloudflare's API, SELECTs only.
+  - The engine's ledger (one row when a post goes out, one row per capture of its numbers) is grouped into one record per post. A post with no posting time takes it from its LinkedIn id, whose top 41 bits are a millisecond timestamp.
+  - In Cadence (`src/services/engine-import.ts`), each post becomes a published draft (its gate carries the pillar as the angle, plus the hook, visual and score), a publication keyed by its LinkedIn id, and one metrics snapshot per capture.
+  - Importing again adds only new captures. A post that belongs to another Cadence account is skipped.
+  - The browser sends the file in batches of 40. Posts whose text the engine didn't keep say so on Published.
+- **Results: time frames, totals and more breakdowns** (`/app/results?range=4w|12w|26w|all`, 12 weeks by default):
+  - Every chart and total covers the chosen span.
+  - New totals: posts (and how many have numbers), impressions (and per post), engagement rate, and the best post.
+  - "What works" adds **by time of day**, plus **by hook** and **by rubric score** for imported engine posts. A group shows only when it has posts. The API's `whatWorks` dimensions grow to match.
+- **Inputs, in tabs** (`/app/inputs?tab=`):
+  - One tab per group: Who you are, How you sound, What drafts learn from, How much and when, Where it goes, Your account. The page is no longer one long scroll.
+  - Each tab shows a badge with the number of its inputs your results say to raise or lower.
+  - The tab bar stays in view as you scroll.
+  - Each page's **All inputs →** link opens the tab with that page's inputs.
+- **Setup: your three best-performing posts** (step 2). LinkedIn's export has post text but no numbers, and its API keeps both behind partner scopes, so step 2 asks for the Activity page instead.
+  - **How:** open your Activity page, select all, copy and paste. Cadence reads each of your own posts with its reactions, comments and reposts (`src/lib/activity-posts.ts`); reposts of other people's posts and posts under 80 characters are left out.
+  - **Ranking:** posts are ranked by reactions + 2 × comments + 3 × reposts, and the top three are ticked and fill the three sample boxes. For example, 1,200 reactions, 96 comments and 40 reposts score 1,200 + 192 + 120 = 1,512.
+  - **Your picks:** tick or untick to change which posts are used; the boxes stay editable.
+  - **Other sources:** posts published through Cadence with numbers rank alongside. The export's posts show without numbers, after the ranked ones.
+  - **Claude's role:** Claude reads the paste when `ANTHROPIC_API_KEY` is set, and a post is kept only if its text is word for word in the paste.
+  - **Usage:** recorded as `setup` / `best posts`.
+  - **Export without posts:** step 1 now says when the export has no posts. LinkedIn leaves `Shares.csv` out of the quick archive.
 - **Setup: Quick fill and quick picks** (`/onboarding`, steps 1 and 2). Most people should be able to click through setup instead of typing it.
   - **Quick picks**: audience, goals, topics, the never-list and a new **How do you sound?** are chips. You can pick several at once and add your own.
     - The options follow what you say you do (`src/lib/setup-picks.ts`): trader, founder, engineer, sales and marketing, finance, consultant, product and design, recruiter, job seeker, creator.

@@ -80,7 +80,9 @@ export function ImpactChart({ data }: { data: ImpactPost[] }) {
 const worksConfig = { rate: { label: "Engagement rate", color: "var(--primary)" } } satisfies ChartConfig;
 
 export function WhatWorksChart({ data }: { data: WhatWorks }) {
-  const groups = [["angle", "By angle"], ["weekday", "By weekday"], ["length", "By length"]] as const;
+  // Hook and score exist for posts imported from LinkedIn Engine; a group shows only when it has posts.
+  const groups = ([["angle", "By angle"], ["weekday", "By weekday"], ["length", "By length"], ["hook", "By hook"], ["time", "By time of day"], ["score", "By rubric score"]] as const)
+    .filter(([dim]) => data.some((d) => d.dimension === dim));
   return (
     <div data-testid="chart-what-works" className="grid gap-6 md:grid-cols-3">
       {groups.map(([dim, title]) => {
@@ -88,7 +90,7 @@ export function WhatWorksChart({ data }: { data: WhatWorks }) {
         return (
           <div key={dim}>
             <p className="mb-2 text-sm font-medium">{title}</p>
-            <ChartContainer config={worksConfig} className="h-44 w-full">
+            <ChartContainer config={worksConfig} className="w-full" style={{ height: Math.max(176, rows.length * 40 + 16) }}>
               <BarChart data={rows} layout="vertical" margin={{ left: 0, right: 44 }}>
                 <XAxis type="number" hide domain={[0, "dataMax"]} />
                 <YAxis type="category" dataKey="label" tickLine={false} axisLine={false} width={110} tick={{ fontSize: 12 }} />

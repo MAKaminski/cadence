@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { InputsLink } from "@/components/inputs-link";
 import { requireSubscriber } from "@/lib/session";
 import { ImportPanel } from "./panel";
+import { EngineImporter } from "./engine-importer";
 
 export const metadata: Metadata = { title: "Import your AI history" };
 
@@ -17,6 +18,7 @@ export default async function ImportPage() {
         </p>
         <p className="mt-2"><InputsLink page="/app/import" /></p>
       </div>
+      <EngineImporter />
       <ImportPanel userId={user.id} />
     </div>
   );

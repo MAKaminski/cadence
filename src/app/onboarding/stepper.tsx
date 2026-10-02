@@ -1,5 +1,5 @@
 "use client";
-import { useMemo, useRef, useState, useTransition } from "react";
+import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
@@ -8,7 +8,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Progress } from "@/components/ui/progress";
-import { quickFill, saveAbout, saveRhythm, saveVoice } from "./actions";
+import { bestPosts, quickFill, saveAbout, saveRhythm, saveVoice } from "./actions";
+import { numbersLine, type RankedPost } from "@/lib/activity-posts";
 import { defaultsOf, joinList, picksFor, splitList, toggle, type PickKey } from "@/lib/setup-picks";
 import { hasContent, readExport, wanted, type LinkedInProfile } from "@/lib/linkedin-export";
 import { readTexts } from "@/lib/zip-lite";
@@ -29,6 +30,8 @@ const WHY = [
   "How often and when you post. Drafts arrive before each slot for you to approve. You can change all of this later on Inputs.",
 ];
 const EXPORT_URL = "https://www.linkedin.com/mypreferences/d/download-my-data";
+const ACTIVITY_URL = "https://www.linkedin.com/in/me/recent-activity/all/";
+const SOURCE: Record<RankedPost["source"], string> = { activity: "From your Activity page", cadence: "Posted through Cadence", export: "From your export · no numbers" };
 
 function Field({ id, label, hint, children }: { id: string; label: string; hint?: string; children: React.ReactNode }) {
   return (
@@ -95,6 +98,10 @@ export function Stepper({ initial, example, returnToApp }: { initial: Initial; e
   const [pending, start] = useTransition();
   const [filling, startFill] = useTransition();
   const file = useRef<HTMLInputElement>(null);
+  // Step 2: candidates for the three samples, best first, and the ones ticked (at most three).
+  const [best, setBest] = useState<RankedPost[] | null>(null);
+  const [picked, setPicked] = useState<string[]>([]);
+  const [activity, setActivity] = useState("");
   const set = <K extends keyof Initial>(k: K, val: Initial[K]) => setV((x) => ({ ...x, [k]: val }));
 
   const picks = useMemo(() => picksFor(v.role, v.audience.join(" ")), [v.role, v.audience]);
@@ -147,6 +154,28 @@ export function Stepper({ initial, example, returnToApp }: { initial: Initial; e
     } finally { if (file.current) file.current.value = ""; }
   });
 
+  const fillSamples = (texts: string[]) => set("samples", [texts[0] ?? "", texts[1] ?? "", texts[2] ?? ""]);
+  const findBest = (paste?: string) => startFill(async () => {
+    const res = await bestPosts({ pasted: paste?.trim() || undefined, exportPosts: li?.posts.slice(0, 30) ?? [] });
+    if (!res.ok) { toast.error(res.error); return; }
+    setBest(res.posts);
+    if (res.scored) {
+      // Deliberate default: the three that did best, in order.
+      const top = res.posts.filter((x) => x.score != null).slice(0, 3).map((x) => x.text);
+      setPicked(top); fillSamples(top);
+      if (paste) toast.success(`Ranked ${res.scored} of your posts by engagement. The top ${top.length} are ticked.`);
+    } else if (paste) toast.error("No posts with numbers in that paste. Copy the Posts tab of your Activity page, after scrolling to load them.");
+  });
+  // On reaching step 2, show what's already known: posts published through Cadence, and the export's.
+  useEffect(() => { if (step === 2 && best === null) findBest(); }, [step]); // eslint-disable-line react-hooks/exhaustive-deps
+  const pick = (text: string) => {
+    const on = picked.includes(text);
+    if (!on && picked.length >= 3) { toast.error("Three posts at most. Untick one first."); return; }
+    const next = on ? picked.filter((x) => x !== text) : [...picked, text];
+    const ordered = (best ?? []).map((x) => x.text).filter((t) => next.includes(t)); // keep rank order
+    setPicked(ordered); fillSamples(ordered);
+  };
+
   const submit = () => start(async () => {
     const res = step === 1 ? await saveAbout({ role: v.role, audience: joinList("audience", list("audience")), goals: joinList("goals", list("goals")), facts: v.facts })
       : step === 2 ? await saveVoice({ samples: v.samples, style: list("style"), topics: joinList("topics", list("topics")), noGo: joinList("noGo", list("noGo")) })
@@ -167,7 +196,8 @@ export function Stepper({ initial, example, returnToApp }: { initial: Initial; e
     }
   };
 
-  const readFromLi = li && [li.headline && "headline", li.positions.length && `${li.positions.length} roles`, li.skills.length && `${li.skills.length} skills`, li.posts.length && `${li.posts.length} posts`].filter(Boolean).join(", ");
+  const readFromLi = li && [li.headline && "headline", li.positions.length && `${li.positions.length} roles`, li.skills.length && `${li.skills.length} skills`,
+    li.posts.length ? `${li.posts.length} posts` : "no posts (LinkedIn leaves Shares.csv out of the quick archive; you can paste your Activity page on the next step)"].filter(Boolean).join(", ");
 
   return (
     <div className="flex flex-col gap-6">
@@ -208,7 +238,7 @@ export function Stepper({ initial, example, returnToApp }: { initial: Initial; e
           <details className="text-sm">
             <summary className="cursor-pointer font-medium">Or paste your profile <span className="font-normal text-muted-foreground">(instant)</span></summary>
             <p className="my-1 text-xs text-muted-foreground">Open your LinkedIn profile, select all (⌘A or Ctrl+A), copy, paste it here, then press Quick fill.</p>
-            <Textarea aria-label="Pasted LinkedIn profile" rows={4} value={pasted} onChange={(e) => setPasted(e.target.value)} />
+            <Textarea aria-label="Pasted LinkedIn profile" rows={4} className="max-h-32 overflow-y-auto" value={pasted} onChange={(e) => setPasted(e.target.value)} />
           </details>
           <p className="text-xs text-muted-foreground" data-testid="bring-history">
             Have a ChatGPT or Claude history? <Link href="/onboarding/import" className="font-medium text-primary underline underline-offset-4">Import from ChatGPT or Claude</Link> and
@@ -240,8 +270,44 @@ export function Stepper({ initial, example, returnToApp }: { initial: Initial; e
           <Picks k="topics" label="Topics you want to be known for" hint="Pick three to five. Add your own for anything specific to you." options={options("topics")} value={list("topics")} onChange={setList("topics")} />
           <Picks k="noGo" label="Never write about" hint="Cadence keeps these out of every draft. The ticked ones suit most people." options={options("noGo")} value={list("noGo")} onChange={setList("noGo")} />
           <Picks k="style" label="How do you sound?" hint="Enough to start on its own. Your own posts below make the match closer." options={options("style")} value={list("style")} onChange={setList("style")} />
+          <section className="flex flex-col gap-3 rounded-lg border border-primary/30 bg-primary/5 p-4" data-testid="best-posts">
+            <div>
+              <h2 className="font-medium">Your best posts</h2>
+              <p className="mt-1 text-sm text-muted-foreground">
+                Cadence learns your voice from three of your posts, best first. LinkedIn doesn&apos;t share post numbers with apps, so paste your Activity page:
+                Cadence ranks your posts by reactions + 2 × comments + 3 × reposts and ticks the top three.
+              </p>
+            </div>
+            <ol className="list-decimal pl-5 text-sm text-muted-foreground">
+              <li>Open <a href={ACTIVITY_URL} target="_blank" rel="noreferrer" className="font-medium text-primary underline underline-offset-4">your Activity page</a> and scroll until your last ~20 posts have loaded.</li>
+              <li>Select all (⌘A or Ctrl+A) and copy.</li>
+              <li>Paste it here.</li>
+            </ol>
+            <Textarea aria-label="Pasted Activity page" rows={3} className="max-h-32 overflow-y-auto" value={activity} onChange={(e) => setActivity(e.target.value)} />
+            <div><Button type="button" onClick={() => findBest(activity)} disabled={filling || !activity.trim()}>{filling ? "Ranking…" : "Find my best posts"}</Button></div>
+            {best && best.length > 0 && (
+              <ul className="flex flex-col gap-2" aria-label="Your posts, best first">
+                {best.map((p, i) => {
+                  const on = picked.includes(p.text);
+                  return (
+                    <li key={p.text.slice(0, 80) + i}>
+                      <button type="button" aria-pressed={on} data-testid="best-post" onClick={() => pick(p.text)}
+                        className={`w-full rounded-lg border p-3 text-left text-sm transition-colors ${on ? "border-primary bg-background ring-2 ring-primary/30" : "bg-background hover:bg-muted"}`}>
+                        <span className="flex flex-wrap items-center justify-between gap-2 text-xs text-muted-foreground">
+                          <span className="font-medium text-foreground">{on ? "✓ Using this post" : "+ Use this post"}</span>
+                          <span data-testid="best-post-numbers">{p.score != null ? `${numbersLine(p)} · score ${p.score.toLocaleString("en-US")}` : SOURCE[p.source]}</span>
+                        </span>
+                        <span className="mt-1 line-clamp-3 block whitespace-pre-line">{p.text}</span>
+                        {p.score != null && <span className="mt-1 block text-xs text-muted-foreground">{SOURCE[p.source]}</span>}
+                      </button>
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+          </section>
           {[0, 1, 2].map((i) => (
-            <Field key={i} id={`sample${i}`} label={`A post you've written (${i + 1} of 3)`} hint={i === 0 ? "Optional once you've picked how you sound. Posts that did well are best; paste the full text." : undefined}>
+            <Field key={i} id={`sample${i}`} label={`A post you've written (${i + 1} of 3)`} hint={i === 0 ? "Filled from the posts you tick above, or paste your own. Optional once you've picked how you sound." : undefined}>
               <Textarea id={`sample${i}`} rows={5} value={v.samples[i]} onChange={(e) => { const s = [...v.samples] as Initial["samples"]; s[i] = e.target.value; set("samples", s); }} />
             </Field>
           ))}

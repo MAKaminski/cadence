@@ -45,7 +45,7 @@ export async function draftFromCheckin(userId: string, inputId: string) {
     profile: (await tx.select().from(profiles).where(eq(profiles.userId, userId)))[0],
     input: (await tx.select().from(inputs).where(eq(inputs.id, inputId)))[0],
     recent: (await tx.select({ body: drafts.body }).from(drafts)
-      .where(inArray(drafts.status, ["scheduled", "published"])).orderBy(desc(drafts.createdAt)).limit(LIMITS.repeatLookback)).map((r) => r.body),
+      .where(inArray(drafts.status, ["scheduled", "published"])).orderBy(desc(drafts.createdAt)).limit(LIMITS.repeatLookback)).map((r) => r.body).filter(Boolean),
     accounts: await tx.select().from(platformAccounts).where(eq(platformAccounts.status, "active")),
   }));
   const account = accounts.find((a) => a.platform === "linkedin");

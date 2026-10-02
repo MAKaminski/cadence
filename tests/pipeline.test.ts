@@ -67,7 +67,7 @@ d("drafting and publishing pipeline", () => {
     expect(posts).toHaveLength(1);
     expect(posts[0].sample).toBe(true);
     expect(posts[0].rate).toBeGreaterThan(0);
-    expect((await stats.whatWorks(U)).map((w) => w.dimension).sort()).toEqual(["angle", "length", "weekday"]);
+    expect([...new Set((await stats.whatWorks(U)).map((w) => w.dimension))].sort()).toEqual(["angle", "length", "time", "weekday"]); // hook and score only come with imported engine posts
     // Publishing queued the 1, 3 and 7 day captures.
     const queued = await db.asUser(U, (tx) => tx.select().from(s.jobs).where(eq(s.jobs.kind, "metrics")));
     expect(queued).toHaveLength(publishing.METRIC_CAPTURE_HOURS.length);

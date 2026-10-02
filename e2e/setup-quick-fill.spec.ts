@@ -65,3 +65,33 @@ test("setup: no posts yet — picking how you sound is enough", async ({ page })
   await page.getByRole("button", { name: "Save and continue" }).click();
   await expect(page.getByText("Step 3 of 3")).toBeVisible();
 });
+
+test("setup: your three best posts, ranked from your pasted Activity page", async ({ page }) => {
+  const { ACTIVITY_PASTE } = await import("../tests/fixtures/linkedin-activity");
+  await page.goto("/login");
+  await page.getByRole("button", { name: "Continue as demo user" }).click();
+  await page.getByRole("button", { name: /start demo trial/i }).click();
+  await page.getByLabel("What do you do?").fill("Swing trader who teaches options");
+  await page.getByLabel("Facts Cadence may state about you").fill("Trading US equities and options since 2019");
+  await page.getByRole("button", { name: "Save and continue" }).click();
+  await expect(page.getByText("Step 2 of 3")).toBeVisible();
+
+  const best = page.getByTestId("best-posts");
+  await best.getByLabel("Pasted Activity page").fill(ACTIVITY_PASTE);
+  await best.getByRole("button", { name: "Find my best posts" }).click();
+  const cards = best.getByTestId("best-post");
+  await expect(cards).toHaveCount(3); // the repost and the short post are left out
+  await expect(cards.first().getByTestId("best-post-numbers")).toHaveText("1,200 reactions · 96 comments · 40 reposts · score 1,512");
+  for (let i = 0; i < 3; i++) await expect(cards.nth(i)).toHaveAttribute("aria-pressed", "true");
+  await expect(page.getByLabel("A post you've written (1 of 3)")).toHaveValue(/^Three rules I keep/);
+  await expect(page.getByLabel("A post you've written (3 of 3)")).toHaveValue(/^Lost 2R on a breakout/);
+
+  // Untick the weakest: its box empties.
+  await cards.nth(2).click();
+  await expect(page.getByLabel("A post you've written (3 of 3)")).toHaveValue("");
+  await page.getByRole("button", { name: "Save and continue" }).click();
+  await expect(page.getByText("Step 3 of 3")).toBeVisible();
+  await page.goto("/onboarding?edit=1&step=2");
+  await expect(page.getByLabel("A post you've written (1 of 3)")).toHaveValue(/^Three rules I keep/);
+  await expect(page.getByLabel("A post you've written (2 of 3)")).toHaveValue(/^Markets were closed today/);
+});

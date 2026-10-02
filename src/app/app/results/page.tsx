@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { consistency, impact, outreach, whatWorks } from "@/services/stats";
+import { consistency, impact, outreach, RANGES, sinceOf, totals, whatWorks, type Range } from "@/services/stats";
 import { requireSubscriber } from "@/lib/session";
 import Link from "next/link";
 import { asUser } from "@/db";
@@ -24,14 +24,21 @@ function Stat({ label, value, hint }: { label: string; value: string | number; h
   );
 }
 
-export default async function Results({ searchParams }: { searchParams: Promise<{ channel?: string }> }) {
+export default async function Results({ searchParams }: { searchParams: Promise<{ channel?: string; range?: string }> }) {
   const user = await requireSubscriber();
   // One channel at a time: an X version is the same post, so mixing them would double the counts.
   const connected = await asUser(user.id, (tx) => tx.selectDistinct({ platform: platformAccounts.platform }).from(platformAccounts));
   const channels = PLATFORMS.filter((p) => p.id === "linkedin" || connected.some((c) => c.platform === p.id));
-  const asked = (await searchParams).channel;
-  const channel = channels.find((p) => p.id === asked) ?? spec("linkedin");
-  const [weeks, c, posts, works] = await Promise.all([outreach(user.id, 12, channel.id), consistency(user.id), impact(user.id, 30, channel.id), whatWorks(user.id, channel.id)]);
+  const q = await searchParams;
+  const channel = channels.find((p) => p.id === q.channel) ?? spec("linkedin");
+  // Time frame: every chart and total below covers the same span.
+  const range: Range = q.range && q.range in RANGES ? (q.range as Range) : "12w";
+  const since = sinceOf(range);
+  const span = RANGES[range].weeks ?? 52;
+  const [weeks, c, posts, works, t] = await Promise.all([
+    outreach(user.id, span, channel.id), consistency(user.id), impact(user.id, range === "4w" ? 30 : 150, channel.id, since), whatWorks(user.id, channel.id, since), totals(user.id, channel.id, since),
+  ]);
+  const href = (r: Range) => { const u = new URLSearchParams(); if (channel.id !== "linkedin") u.set("channel", channel.id); if (r !== "12w") u.set("range", r); const s = u.toString(); return `/app/results${s ? `?${s}` : ""}`; };
   const sample = posts.some((p) => p.sample);
   const thisWeek = weeks[weeks.length - 1];
   const waiting = <p className="rounded-lg border border-dashed p-6 text-center text-sm text-muted-foreground">
@@ -51,7 +58,7 @@ export default async function Results({ searchParams }: { searchParams: Promise<
           {channels.length > 1 && (
             <nav aria-label="Channel" className="mt-3 flex gap-1">
               {channels.map((p) => (
-                <Link key={p.id} href={p.id === "linkedin" ? "/app/results" : `/app/results?channel=${p.id}`} aria-current={p.id === channel.id ? "page" : undefined}
+                <Link key={p.id} href={p.id === "linkedin" ? `/app/results${range !== "12w" ? `?range=${range}` : ""}` : `/app/results?channel=${p.id}${range !== "12w" ? `&range=${range}` : ""}`} aria-current={p.id === channel.id ? "page" : undefined}
                   className={`rounded-md px-3 py-1 text-sm ${p.id === channel.id ? "bg-muted font-medium" : "text-muted-foreground hover:bg-muted"}`}>{p.name}</Link>
               ))}
             </nav>
@@ -62,6 +69,20 @@ export default async function Results({ searchParams }: { searchParams: Promise<
           {isDemo() && posts.length < 6 && <SeedButton />}
         </div>
       </div>
+
+      <nav aria-label="Time frame" data-testid="ranges" className="flex flex-wrap gap-1">
+        {(Object.keys(RANGES) as Range[]).map((r) => (
+          <Link key={r} href={href(r)} aria-current={r === range ? "page" : undefined}
+            className={`rounded-md border px-3 py-1 text-sm ${r === range ? "border-primary bg-primary/10 font-medium text-primary" : "text-muted-foreground hover:bg-muted"}`}>{RANGES[r].label}</Link>
+        ))}
+      </nav>
+
+      <section className="grid gap-3 sm:grid-cols-4" aria-label={`Totals, ${RANGES[range].label.toLowerCase()}`} data-testid="totals">
+        <Stat label="Posts" value={t.posts.toLocaleString("en-US")} hint={`${t.withNumbers} with numbers`} />
+        <Stat label="Impressions" value={t.impressions.toLocaleString("en-US")} hint={t.withNumbers ? `${Math.round(t.impressions / t.withNumbers).toLocaleString("en-US")} per post` : "no numbers yet"} />
+        <Stat label="Engagement rate" value={t.rate == null ? "–" : `${(t.rate * 100).toFixed(2)}%`} hint={`${t.engagements.toLocaleString("en-US")} reactions, comments and reshares`} />
+        <Stat label="Best post" value={t.best ? t.best.impressions.toLocaleString("en-US") : "–"} hint={t.best ? `impressions · ${t.best.excerpt.slice(0, 48)}${t.best.excerpt.length > 48 ? "…" : ""}` : "no numbers yet"} />
+      </section>
 
       <section id="consistency" className="grid scroll-mt-6 gap-3 sm:grid-cols-4" aria-label="Consistency">
         <Stat label="This week" value={`${thisWeek.posts} / ${thisWeek.target}`} hint="posts published vs your target" />
@@ -89,7 +110,7 @@ export default async function Results({ searchParams }: { searchParams: Promise<
       <Card id="what-works" className="scroll-mt-6">
         <CardHeader>
           <CardTitle>What works for you</CardTitle>
-          <CardDescription>How to read this: average engagement rate grouped three ways. Longer bars did better. With only a few posts, treat it as a hint, not a rule; Cadence will use it to steer drafts once there are enough.</CardDescription>
+          <CardDescription>How to read this: average engagement rate grouped by angle, weekday, length and time of day (and hook and rubric score for posts from LinkedIn Engine). Longer bars did better. With only a few posts, treat it as a hint, not a rule; Cadence will use it to steer drafts once there are enough.</CardDescription>
         </CardHeader>
         <CardContent>{works.length ? <WhatWorksChart data={works} /> : waiting}</CardContent>
       </Card>

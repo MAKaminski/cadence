@@ -49,7 +49,7 @@ export default async function Published() {
               {!real && r.externalId && <span className="ml-auto font-mono text-xs text-muted-foreground">{r.externalId}</span>}
             </CardHeader>
             <CardContent className="flex flex-col gap-4">
-              <p className="line-clamp-6 whitespace-pre-wrap text-sm leading-relaxed">{r.body}</p>
+              <p className="line-clamp-6 whitespace-pre-wrap text-sm leading-relaxed">{r.body || <span className="text-muted-foreground">The text of this post wasn&apos;t kept by LinkedIn Engine. Open it on LinkedIn to read it.</span>}</p>
               {r.status === "needs_review" && <p className="text-sm text-red-700">Cadence lost contact while posting, so it may or may not be live. Check your LinkedIn activity; Cadence will not try again on its own.</p>}
               {m && (
                 <dl className="grid grid-cols-2 gap-2 rounded-lg bg-muted p-3 text-center text-sm sm:grid-cols-5" aria-label={isSample ? "Sample results" : "Results"}>
@@ -60,7 +60,7 @@ export default async function Published() {
                     .filter(([, v]) => v != null)
                     .map(([k, v]) => <div key={k}><dt className="text-muted-foreground">{k}</dt><dd className="font-semibold tabular-nums">{v!.toLocaleString()}</dd></div>)}
                   <p className="col-span-full text-xs text-muted-foreground">
-                    {isSample ? "Sample numbers (demo mode)" : `${m.source === "manual" ? "Entered by you" : `From ${r.platform === "x" ? "X" : "LinkedIn"}`}, ${fmt(new Date(m.capturedAt))}`}
+                    {isSample ? "Sample numbers (demo mode)" : `${m.source === "manual" ? "Entered by you" : m.source === "import" ? "From LinkedIn Engine" : `From ${r.platform === "x" ? "X" : "LinkedIn"}`}, ${fmt(new Date(m.capturedAt))}`}
                   </p>
                 </dl>
               )}

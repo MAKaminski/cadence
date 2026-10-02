@@ -1,7 +1,7 @@
 "use client";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { BarChart3, CalendarClock, Eye, FilePen, Gauge, History, PenLine, Radio, Send, Settings, SlidersHorizontal, Sparkles, SquarePen } from "lucide-react";
+import { BarChart3, CalendarClock, CircleHelp, Eye, FilePen, Gauge, History, PenLine, Radio, Send, Settings, SlidersHorizontal, Sparkles, SquarePen } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { AccountNav } from "@/components/account-nav";
 
@@ -99,6 +99,9 @@ export function AppNav({ access = { flags: [], admin: false }, account }: { acce
         ))}
       </dl>
       <div className="absolute top-2.5 right-4 flex items-center gap-1 md:static md:flex-col md:items-stretch">
+        <Link href="/help" target="_blank" className="flex items-center gap-2 rounded-md px-3 py-2 text-sm text-muted-foreground hover:bg-muted hover:text-foreground" aria-label="Help: demos and FAQs (opens in a new tab)">
+          <CircleHelp className="size-4" aria-hidden /><span className="hidden md:inline">Help</span>
+        </Link>
         {FOOTER.filter(shown).map((i) => (i.href === "/app/settings" && account
           ? <AccountNav key={i.href} name={account.name} avatar={account.avatar} kind={KINDS[i.kind]} className={cn("rounded-l-none border-l-2", KINDS[i.kind].bar)} />
           : <NavLink key={i.href} item={i} kind={i.kind} path={path} iconOnlyOnPhone />))}

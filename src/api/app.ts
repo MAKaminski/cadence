@@ -98,7 +98,7 @@ const Publication = z.object({
 const Outreach = z.array(z.object({ week: z.string(), posts: z.number(), target: z.number() })).openapi("Outreach");
 const Impact = z.object({
   posts: z.array(z.object({ publicationId: z.string(), publishedAt: z.string(), excerpt: z.string(), impressions: z.number(), engagements: z.number(), rate: z.number(), movingRate: z.number(), sample: z.boolean() })),
-  whatWorks: z.array(z.object({ dimension: z.enum(["angle", "weekday", "length"]), label: z.string(), posts: z.number(), rate: z.number() })),
+  whatWorks: z.array(z.object({ dimension: z.enum(["angle", "weekday", "length", "hook", "time", "score"]), label: z.string(), posts: z.number(), rate: z.number() })),
 }).openapi("Impact");
 const IdParam = z.object({ id: z.string().uuid().openapi({ param: { name: "id", in: "path" } }) });
 
