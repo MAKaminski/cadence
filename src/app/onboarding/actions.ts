@@ -4,7 +4,9 @@ import { profiles } from "@/db/schema";
 import { requireSubscriber } from "@/lib/session";
 import { aboutSchema, getProfile, lines, rhythmSchema, saveProfile, voiceSchema } from "@/services/profile";
 import { resetPostingFromCadence } from "@/services/plan";
-import { suggester, type SetupSuggestion } from "@/lib/setup-suggest";
+import { postsFromActivity, suggester, type SetupSuggestion } from "@/lib/setup-suggest";
+import { rankPosts, score, type RankedPost } from "@/lib/activity-posts";
+import { listPublications } from "@/services/publications";
 import { trimmed, type LinkedInProfile } from "@/lib/linkedin-export";
 import { track } from "@/lib/usage";
 
@@ -77,4 +79,33 @@ export async function quickFill(input: z.input<typeof quickFillInput>): Promise<
     console.error("[quick fill]", e);
     return { ok: false, error: "Quick fill couldn't finish. Pick from the options below, or try again in a minute." };
   }
+}
+
+const bestPostsInput = z.object({
+  pasted: z.string().max(60_000).optional(),
+  exportPosts: z.array(z.object({ date: s(40), text: s(6000) })).max(30).default([]),
+});
+
+/** Candidates for the three voice samples, best first: posts with numbers (pasted from the Activity page, or
+ *  published through Cadence with numbers), then the export's posts, which have none. */
+export async function bestPosts(input: z.input<typeof bestPostsInput>): Promise<{ ok: true; posts: RankedPost[]; scored: number } | { ok: false; error: string }> {
+  const user = await requireSubscriber();
+  const p = bestPostsInput.safeParse(input);
+  if (!p.success) return { ok: false, error: "That's more than this can read at once. Copy just the Posts tab of your Activity page." };
+  const all: RankedPost[] = [];
+  if (p.data.pasted?.trim()) {
+    const { posts, usage, by } = await postsFromActivity(p.data.pasted);
+    all.push(...posts);
+    await track(user.id, { feature: "setup", action: "best posts", costUsd: usage?.costUsd ?? 0, meta: { by, found: posts.length } });
+  }
+  // Cadence's own LinkedIn posts with numbers (not the demo's sample numbers).
+  for (const x of await listPublications(user.id, 100)) {
+    const m = x.latest;
+    if (x.platform !== "linkedin" || x.status !== "published" || !m || m.sample) continue;
+    const n = { reactions: m.reactions, comments: m.comments, reposts: m.reshares };
+    all.push({ text: x.body, ...n, impressions: m.impressions, score: score(n), source: "cadence", date: x.publishedAt ?? undefined });
+  }
+  for (const x of p.data.exportPosts) all.push({ text: x.text, reactions: null, comments: null, reposts: null, score: null, source: "export", date: x.date });
+  const posts = rankPosts(all).slice(0, 12);
+  return { ok: true, posts, scored: posts.filter((x) => x.score != null).length };
 }

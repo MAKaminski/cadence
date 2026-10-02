@@ -9,6 +9,14 @@ All notable changes to Cadence. The format follows [Keep a Changelog](https://ke
 - `/app/inputs` no longer logs an error for someone who hasn't finished setup (they were already sent to setup).
 
 ### Added
+- **Setup: your three best-performing posts** (step 2). LinkedIn's export has post text but no numbers, and its API keeps both behind partner scopes, so step 2 asks for the Activity page instead.
+  - **How:** open your Activity page, select all, copy and paste. Cadence reads each of your own posts with its reactions, comments and reposts (`src/lib/activity-posts.ts`); reposts of other people's posts and posts under 80 characters are left out.
+  - **Ranking:** posts are ranked by reactions + 2 × comments + 3 × reposts, and the top three are ticked and fill the three sample boxes. For example, 1,200 reactions, 96 comments and 40 reposts score 1,200 + 192 + 120 = 1,512.
+  - **Your picks:** tick or untick to change which posts are used; the boxes stay editable.
+  - **Other sources:** posts published through Cadence with numbers rank alongside. The export's posts show without numbers, after the ranked ones.
+  - **Claude's role:** Claude reads the paste when `ANTHROPIC_API_KEY` is set, and a post is kept only if its text is word for word in the paste.
+  - **Usage:** recorded as `setup` / `best posts`.
+  - **Export without posts:** step 1 now says when the export has no posts. LinkedIn leaves `Shares.csv` out of the quick archive.
 - **Setup: Quick fill and quick picks** (`/onboarding`, steps 1 and 2). Most people should be able to click through setup instead of typing it.
   - **Quick picks**: audience, goals, topics, the never-list and a new **How do you sound?** are chips. You can pick several at once and add your own.
     - The options follow what you say you do (`src/lib/setup-picks.ts`): trader, founder, engineer, sales and marketing, finance, consultant, product and design, recruiter, job seeker, creator.

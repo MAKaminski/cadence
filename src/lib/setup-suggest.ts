@@ -9,6 +9,7 @@ import { cost, type Usage } from "@/lib/llm";
 import { isDemo } from "@/lib/mode";
 import { currentRole, factsFrom, samplesFrom, type LinkedInProfile } from "@/lib/linkedin-export";
 import { defaultsOf, picksFor, type PickKey, type Picks } from "@/lib/setup-picks";
+import { isVerbatim, MIN_POST_CHARS, parseActivity, score, type RankedPost } from "@/lib/activity-posts";
 
 export type SetupInput = {
   name?: string; linkedin?: LinkedInProfile; pasted?: string;
@@ -112,3 +113,35 @@ export const claudeSuggester = {
 };
 
 export const suggester = () => (isDemo() || !process.env.ANTHROPIC_API_KEY ? ruleSuggester : claudeSuggester);
+
+// ---------------------------------------------------------------------------------------------
+// Best posts: the person's own posts with their numbers, from their pasted Activity page.
+
+const PostsOut = z.object({
+  posts: z.array(z.object({
+    text: z.string().describe("The post body exactly as in the paste: same words and line breaks; no name, headline, age, '…more', image labels or buttons"),
+    reactions: z.number().nullable(), comments: z.number().nullable(), reposts: z.number().nullable(),
+  })),
+});
+
+/** Posts with numbers from pasted Activity page text. Claude reads the layout when a key is set; a post is
+ *  kept only if its text is word for word in the paste, so samples stay the person's own words. */
+export async function postsFromActivity(pasted: string): Promise<{ posts: RankedPost[]; usage: Usage | null; by: string }> {
+  const rules = parseActivity(pasted);
+  if (isDemo() || !process.env.ANTHROPIC_API_KEY) return { posts: rules, usage: null, by: "rules" };
+  try {
+    const res = await new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY }).messages.parse({
+      model: MODEL, max_tokens: 16000,
+      system: "You extract posts from text copied off a LinkedIn member's Activity page. Copy post text exactly; never rewrite, shorten or fix it.",
+      messages: [{ role: "user", content: `List every post this member wrote themselves. Leave out posts they reposted from others, their comments, and posts under ${MIN_POST_CHARS} characters. Counts: "Name and 41 others" is 42 reactions; a bare number above the comment count is the reactions; "1.2K" is 1200; null when not shown.\n\n${pasted}` }],
+      output_config: { format: zodOutputFormat(PostsOut) },
+    });
+    const usage = cost(MODEL, res.usage);
+    const verified: RankedPost[] = (res.parsed_output?.posts ?? []).filter((p) => isVerbatim(pasted, p.text))
+      .map((p) => ({ text: p.text.trim(), reactions: p.reactions, comments: p.comments, reposts: p.reposts, score: score(p), source: "activity" }));
+    return verified.length ? { posts: verified, usage, by: "claude" } : { posts: rules, usage, by: "rules" };
+  } catch (e) {
+    console.error("[best posts]", e);
+    return { posts: rules, usage: null, by: "rules" };
+  }
+}
