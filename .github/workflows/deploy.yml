@@ -1,0 +1,73 @@
+name: deploy
+# Ships main to the server after CI passes on it, or on demand (Actions → deploy → Run workflow).
+# Off until the repository has the CADENCE_SSH_KEY secret: forks and fresh clones never try to deploy.
+#
+# Settings (repository → Settings → Secrets and variables → Actions):
+#   secrets  CADENCE_SSH_KEY      private deploy key; on the server it may only run deploy/remote-deploy.sh
+#            CADENCE_HOST         user@host, e.g. opc@203.0.113.7
+#            CADENCE_KNOWN_HOSTS  the server's host key line(s), from `ssh-keyscan HOST`
+#   variable CADENCE_URL          the site, e.g. https://cadence.example.com (for the health check)
+# README → Self-hosting → Automatic deploys has the one-time setup.
+on:
+  workflow_run:
+    workflows: [ci]
+    types: [completed]
+    branches: [main]
+  workflow_dispatch:
+
+# One deploy at a time, in order; a newer one waits rather than cancelling one halfway through.
+concurrency: { group: deploy-production, cancel-in-progress: false }
+permissions: { contents: read }
+
+jobs:
+  deploy:
+    # Only main's own pushes, only when CI passed (a pull request's green run never deploys).
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push')
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    environment: production
+    env:
+      SHA: ${{ github.event.workflow_run.head_sha || github.sha }}
+      HAS_KEY: ${{ secrets.CADENCE_SSH_KEY != '' }}
+    steps:
+      - name: Not set up
+        if: env.HAS_KEY != 'true'
+        run: |
+          echo "::notice::Automatic deploys are off: add the CADENCE_SSH_KEY, CADENCE_HOST and CADENCE_KNOWN_HOSTS secrets (README → Automatic deploys)."
+
+      - name: SSH key
+        if: env.HAS_KEY == 'true'
+        env:
+          KEY: ${{ secrets.CADENCE_SSH_KEY }}
+          KNOWN: ${{ secrets.CADENCE_KNOWN_HOSTS }}
+        run: |
+          [ -n "$KNOWN" ] || { echo "::error::CADENCE_KNOWN_HOSTS is empty: add the output of ssh-keyscan for the server."; exit 1; }
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$KEY" > ~/.ssh/deploy && chmod 600 ~/.ssh/deploy
+          printf '%s\n' "$KNOWN" > ~/.ssh/known_hosts
+
+      - name: Deploy ${{ env.SHA }}
+        if: env.HAS_KEY == 'true'
+        env: { HOST: "${{ secrets.CADENCE_HOST }}" }
+        # The key's forced command reads only "deploy <sha>"; the server refuses a commit not on main.
+        run: |
+          ssh -i ~/.ssh/deploy -o BatchMode=yes -o StrictHostKeyChecking=yes -o ConnectTimeout=20 -o ServerAliveInterval=30 "$HOST" "deploy $SHA"
+
+      - name: Health check
+        if: env.HAS_KEY == 'true' && vars.CADENCE_URL != ''
+        env: { URL: "${{ vars.CADENCE_URL }}" }
+        run: |
+          # The app restarts after the build; give it up to 3 minutes to answer.
+          for i in $(seq 1 36); do
+            if curl -fsS -o /dev/null "$URL/login" && curl -fsS -o /dev/null "$URL/api/auth/get-session"; then
+              echo "$URL is up: /login and /api/auth/get-session answer 200."; exit 0
+            fi
+            sleep 5
+          done
+          echo "::error::$URL did not answer 200 on /login and /api/auth/get-session within 3 minutes of the deploy."; exit 1
+
+      - name: Clean up
+        if: always()
+        run: rm -f ~/.ssh/deploy

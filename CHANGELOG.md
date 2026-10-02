@@ -4,6 +4,22 @@ All notable changes to Cadence. The format follows [Keep a Changelog](https://ke
 
 ## [Unreleased]
 
+### Added (deploys)
+- **Automatic deploys** (`.github/workflows/deploy.yml`): `main` ships to the server after CI passes on it.
+  - **Checks:** after each deploy, `/login` and `/api/auth/get-session` must answer 200 within 3 minutes. Otherwise the run fails.
+  - **Ordering:** one deploy runs at a time, in order, and a newer one never cancels a deploy halfway through.
+  - **Redeploy:** Actions → deploy → *Run workflow* redeploys on demand.
+  - **The key:** it is locked on the server to `deploy/remote-deploy.sh`. That script accepts only `deploy <sha>` for a commit on `origin/main` (or `status`), takes a lock, then runs the same steps as `deploy/deploy.sh`.
+  - **Setup:** `deploy/setup-auto-deploy.sh` does it once from your own computer: it makes the key, installs and verifies the lock, checks the server's host key against the one you already trust, and sets the GitHub secrets.
+  - **Default:** off until the secrets exist, so forks never try to deploy.
+
+### Fixed (deploys)
+- **A deploy filled the server's disk** (2026-10-02, the build for `b0669ab` stopped with "no space left on device"; the site stayed on the previous version).
+  - **Cause:** `migrate`, `web` and `worker` each had a `build`, so compose built and exported the same image three times at once. The image also carried Next's compiler cache (about 200 MB), and `docker image prune` never clears Docker's build cache.
+  - **Fix:** only `web` builds `cadence-app`, and the other two run it, never pulling it from a registry. `.next/cache` is removed after the build: the build layer goes from 310 MB to 93 MB.
+  - **Every deploy now:** with under 5 GB free, it clears the build cache before building. Afterwards it drops build cache unused for a week and prints the free disk.
+  - `deploy/deploy.sh` now runs the same server script as automatic deploys.
+
 ### Fixed
 - **Every sign-in route answered 500 on a server without Stripe keys** (2026-10-01, after the deploy of `f494b07`): `deploy/.env` lists every setting, so an unset `STRIPE_SECRET_KEY` arrives as an empty string, and `new Stripe("")` threw while the auth module loaded. The placeholder now covers empty as well as missing (`||`), and sign-up no longer calls Stripe until a key is set (checkout creates the customer). `tests/auth-boot.test.ts` loads the auth module with every optional setting blank.
 - `/app/inputs` no longer logs an error for someone who hasn't finished setup (they were already sent to setup).
