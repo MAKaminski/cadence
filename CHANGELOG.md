@@ -9,6 +9,16 @@ All notable changes to Cadence. The format follows [Keep a Changelog](https://ke
 - `/app/inputs` no longer logs an error for someone who hasn't finished setup (they were already sent to setup).
 
 ### Added
+- **Bring your LinkedIn Engine history** (Import page): one file brings in every post LinkedIn Engine published, with its pillar, hook, visual, rubric score and every capture of its numbers.
+  - `scripts/engine-export.mjs` writes the file. It reads the engine's D1 database through Cloudflare's API, SELECTs only.
+  - The engine's ledger (one row when a post goes out, one row per capture of its numbers) is grouped into one record per post. A post with no posting time takes it from its LinkedIn id, whose top 41 bits are a millisecond timestamp.
+  - In Cadence (`src/services/engine-import.ts`), each post becomes a published draft (its gate carries the pillar as the angle, plus the hook, visual and score), a publication keyed by its LinkedIn id, and one metrics snapshot per capture.
+  - Importing again adds only new captures. A post that belongs to another Cadence account is skipped.
+  - The browser sends the file in batches of 40. Posts whose text the engine didn't keep say so on Published.
+- **Results: time frames, totals and more breakdowns** (`/app/results?range=4w|12w|26w|all`, 12 weeks by default):
+  - Every chart and total covers the chosen span.
+  - New totals: posts (and how many have numbers), impressions (and per post), engagement rate, and the best post.
+  - "What works" adds **by time of day**, plus **by hook** and **by rubric score** for imported engine posts. A group shows only when it has posts. The API's `whatWorks` dimensions grow to match.
 - **Inputs, in tabs** (`/app/inputs?tab=`):
   - One tab per group: Who you are, How you sound, What drafts learn from, How much and when, Where it goes, Your account. The page is no longer one long scroll.
   - Each tab shows a badge with the number of its inputs your results say to raise or lower.

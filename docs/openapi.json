@@ -610,7 +610,10 @@
                   "enum": [
                     "angle",
                     "weekday",
-                    "length"
+                    "length",
+                    "hook",
+                    "time",
+                    "score"
                   ]
                 },
                 "label": {

@@ -26,7 +26,7 @@ export async function listPublications(userId: string, limit = 50) {
   });
 }
 
-type Pd = { sample?: boolean; source?: "platform" | "manual"; details?: MetricDetails };
+type Pd = { sample?: boolean; source?: "platform" | "manual" | "import"; details?: MetricDetails };
 function latestOf(m: typeof metrics.$inferSelect) {
   const pd = m.platformData as Pd;
   return {

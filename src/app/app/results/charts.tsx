@@ -80,7 +80,9 @@ export function ImpactChart({ data }: { data: ImpactPost[] }) {
 const worksConfig = { rate: { label: "Engagement rate", color: "var(--primary)" } } satisfies ChartConfig;
 
 export function WhatWorksChart({ data }: { data: WhatWorks }) {
-  const groups = [["angle", "By angle"], ["weekday", "By weekday"], ["length", "By length"]] as const;
+  // Hook and score exist for posts imported from LinkedIn Engine; a group shows only when it has posts.
+  const groups = ([["angle", "By angle"], ["weekday", "By weekday"], ["length", "By length"], ["hook", "By hook"], ["time", "By time of day"], ["score", "By rubric score"]] as const)
+    .filter(([dim]) => data.some((d) => d.dimension === dim));
   return (
     <div data-testid="chart-what-works" className="grid gap-6 md:grid-cols-3">
       {groups.map(([dim, title]) => {
