@@ -110,7 +110,7 @@ export default async function Results({ searchParams }: { searchParams: Promise<
       <Card id="what-works" className="scroll-mt-6">
         <CardHeader>
           <CardTitle>What works for you</CardTitle>
-          <CardDescription>How to read this: average engagement rate grouped three ways. Longer bars did better. With only a few posts, treat it as a hint, not a rule; Cadence will use it to steer drafts once there are enough.</CardDescription>
+          <CardDescription>How to read this: average engagement rate grouped by angle, weekday, length and time of day (and hook and rubric score for posts from LinkedIn Engine). Longer bars did better. With only a few posts, treat it as a hint, not a rule; Cadence will use it to steer drafts once there are enough.</CardDescription>
         </CardHeader>
         <CardContent>{works.length ? <WhatWorksChart data={works} /> : waiting}</CardContent>
       </Card>

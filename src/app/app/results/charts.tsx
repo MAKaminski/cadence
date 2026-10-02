@@ -90,7 +90,7 @@ export function WhatWorksChart({ data }: { data: WhatWorks }) {
         return (
           <div key={dim}>
             <p className="mb-2 text-sm font-medium">{title}</p>
-            <ChartContainer config={worksConfig} className="h-44 w-full">
+            <ChartContainer config={worksConfig} className="w-full" style={{ height: Math.max(176, rows.length * 40 + 16) }}>
               <BarChart data={rows} layout="vertical" margin={{ left: 0, right: 44 }}>
                 <XAxis type="number" hide domain={[0, "dataMax"]} />
                 <YAxis type="category" dataKey="label" tickLine={false} axisLine={false} width={110} tick={{ fontSize: 12 }} />

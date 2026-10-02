@@ -9,6 +9,11 @@ All notable changes to Cadence. The format follows [Keep a Changelog](https://ke
 - `/app/inputs` no longer logs an error for someone who hasn't finished setup (they were already sent to setup).
 
 ### Added
+- **Help: a demo video and FAQs for every action** (`/help`, public, linked from the site header and footer and from the app's menu).
+  - 13 topics in four groups: Getting started, Every week, Tuning Cadence, Seeing what works.
+  - Each topic has a short captioned video, the steps and its own questions, plus the site-wide FAQ. FAQPage structured data is included for search.
+  - The videos are recorded from the app in demo mode by `pnpm help:record [topic…]` (`scripts/help/record.ts`; Playwright drives the app, ffmpeg encodes). Each clip starts from a demo account already in the right state, so it shows only its own action. They are 2.8 MB in total, in `public/help`.
+  - The topics live in `src/lib/help.ts`, which the page and the recorder share. A test fails if a topic has no video or poster.
 - **Bring your LinkedIn Engine history** (Import page): one file brings in every post LinkedIn Engine published, with its pillar, hook, visual, rubric score and every capture of its numbers.
   - `scripts/engine-export.mjs` writes the file. It reads the engine's D1 database through Cloudflare's API, SELECTs only.
   - The engine's ledger (one row when a post goes out, one row per capture of its numbers) is grouped into one record per post. A post with no posting time takes it from its LinkedIn id, whose top 41 bits are a millisecond timestamp.

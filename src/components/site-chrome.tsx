@@ -19,6 +19,7 @@ export function SiteHeader() {
         <nav className="flex items-center gap-5 text-sm">
           <Link href="/how-it-works" className="hidden text-muted-foreground hover:text-foreground sm:inline">How it works</Link>
           <Link href="/demo" className="text-muted-foreground hover:text-foreground">Demo</Link>
+          <Link href="/help" className="text-muted-foreground hover:text-foreground">Help</Link>
           <Link href="/integrations" className="hidden text-muted-foreground hover:text-foreground sm:inline">Integrations</Link>
           <Link href="/#pricing" className="hidden text-muted-foreground hover:text-foreground sm:inline">Pricing</Link>
           <Link href="/login" className="font-medium">Sign in</Link>
@@ -34,7 +35,7 @@ export function SiteFooter() {
       <div className="mx-auto flex max-w-5xl flex-wrap items-center justify-between gap-3 px-4 py-6 text-sm text-muted-foreground">
         <span>© {new Date().getFullYear()} Cadence</span>
         <nav className="flex flex-wrap gap-4">
-          <Link href="/how-it-works">How it works</Link><Link href="/demo">Demo</Link>
+          <Link href="/how-it-works">How it works</Link><Link href="/demo">Demo</Link><Link href="/help">Help</Link>
           <Link href="/integrations">Integrations</Link>
           <a href="/docs/api">API</a>
           <a href="https://github.com/MAKaminski/cadence">GitHub</a>

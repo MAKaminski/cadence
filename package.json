@@ -18,6 +18,7 @@
     "worker:once": "tsx src/worker/index.ts --once",
     "demo": "node scripts/demo.mjs",
     "demo:record": "tsx scripts/demo/record.ts",
+    "help:record": "tsx scripts/help/record.ts",
     "test:e2e": "playwright test",
     "build:worker": "esbuild src/worker/index.ts --bundle --platform=node --format=esm --target=node24 --packages=external --outfile=dist/worker.mjs",
     "catalog": "tsx scripts/catalog.ts",
