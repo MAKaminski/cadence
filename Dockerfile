@@ -10,9 +10,10 @@ COPY . .
 ARG SITE_URL
 ENV NEXT_PUBLIC_SITE_URL=$SITE_URL NEXT_TELEMETRY_DISABLED=1
 # Modules check their settings on import; placeholders get the build through. Real values come at runtime.
+# .next/cache is the compiler's cache (about 200 MB): only the next build on the same machine would use it.
 RUN BETTER_AUTH_URL=$SITE_URL DATABASE_URL=postgres://build@localhost/build BETTER_AUTH_SECRET=build-only-placeholder-at-least-32-chars \
     LINKEDIN_CLIENT_ID=build LINKEDIN_CLIENT_SECRET=build STRIPE_SECRET_KEY=sk_build STRIPE_WEBHOOK_SECRET=whsec_build \
-    STRIPE_PRICE_ID=price_build ANTHROPIC_API_KEY=build pnpm build && pnpm build:worker
+    STRIPE_PRICE_ID=price_build ANTHROPIC_API_KEY=build pnpm build && pnpm build:worker && rm -rf .next/cache
 ENV NODE_ENV=production PORT=3000
 EXPOSE 3000
 CMD ["pnpm", "start"]

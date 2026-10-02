@@ -4,4 +4,6 @@ set -euo pipefail
 : "${CADENCE_HOST:?set CADENCE_HOST=opc@IP}"
 # check-env.sh prints which sign-in settings are set (never their values) and stops the deploy when
 # BETTER_AUTH_URL, BETTER_AUTH_SECRET or POSTGRES_PASSWORD would break sign-in for everyone.
-ssh -i ~/.ssh/cadence_oracle "$CADENCE_HOST" 'cd ~/cadence && git pull --ff-only && sh deploy/check-env.sh deploy/.env && docker compose -f deploy/compose.yml --env-file deploy/.env up -d --build && docker image prune -f'
+# The steps after the pull are deploy/remote-deploy.sh, the same ones automatic deploys run (disk check,
+# settings check, build, migrate, restart, tidy).
+ssh -i ~/.ssh/cadence_oracle "$CADENCE_HOST" 'cd ~/cadence && git pull --ff-only && SSH_ORIGINAL_COMMAND="deploy $(git rev-parse HEAD)" bash deploy/remote-deploy.sh'

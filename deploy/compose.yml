@@ -1,8 +1,9 @@
 # Cadence on one machine: Postgres, migrations, the web app, the worker, Caddy (HTTPS) and a nightly backup.
 # Run from the repo root on the server: docker compose -f deploy/compose.yml --env-file deploy/.env up -d --build
 name: cadence
+# web, worker and migrate run the same image. Only web builds it: with `build` on all three, compose builds
+# and exports the image three times at once, which filled the server's disk on 2026-10-02.
 x-app: &app
-  build: { context: .., args: { SITE_URL: "${BETTER_AUTH_URL}" } }
   image: cadence-app
   env_file: [{ path: .env, required: false }]
   environment:
@@ -17,14 +18,17 @@ services:
     restart: unless-stopped
   migrate:
     <<: *app
+    pull_policy: never # built by web, never on a registry
     command: ["pnpm", "db:migrate"]
     restart: "no"
     depends_on: { db: { condition: service_healthy } }
   web:
     <<: *app
+    build: { context: .., args: { SITE_URL: "${BETTER_AUTH_URL}" } }
     depends_on: { migrate: { condition: service_completed_successfully } }
   worker:
     <<: *app
+    pull_policy: never # built by web, never on a registry
     command: ["node", "dist/worker.mjs"]
     restart: always
     depends_on: { migrate: { condition: service_completed_successfully } }
