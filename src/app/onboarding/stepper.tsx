@@ -1,5 +1,5 @@
 "use client";
-import { useState, useTransition } from "react";
+import { useMemo, useRef, useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
@@ -8,12 +8,16 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Progress } from "@/components/ui/progress";
-import { saveAbout, saveRhythm, saveVoice } from "./actions";
+import { quickFill, saveAbout, saveRhythm, saveVoice } from "./actions";
+import { defaultsOf, joinList, picksFor, splitList, toggle, type PickKey } from "@/lib/setup-picks";
+import { hasContent, readExport, wanted, type LinkedInProfile } from "@/lib/linkedin-export";
+import { readTexts } from "@/lib/zip-lite";
+import type { SetupSuggestion } from "@/lib/setup-suggest";
 
-type Initial = {
+type Lists = Record<PickKey, string[]>;
+type Initial = Lists & {
   step: number;
-  role: string; audience: string; goals: string; facts: string;
-  samples: [string, string, string]; topics: string; noGo: string;
+  role: string; facts: string; samples: [string, string, string];
   perWeek: number; days: string[]; time: string; model: "claude-sonnet-5" | "claude-opus-5";
 };
 
@@ -21,9 +25,10 @@ const DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"] as const;
 const TITLES = ["About you", "Your voice", "Your rhythm"];
 const WHY = [
   "Cadence writes for a specific person and audience. The facts list is the only source of claims it will make on your behalf, so nothing invented reaches your feed.",
-  "Your own posts teach it how you sound: sentence length, tone, what you never say. Topics steer what it writes about; the no-go list keeps it away from the rest.",
+  "Pick what you want to be known for, what stays out, and how you sound. Your own posts, if you have some, teach it your voice best.",
   "How often and when you post. Drafts arrive before each slot for you to approve. You can change all of this later on Inputs.",
 ];
+const EXPORT_URL = "https://www.linkedin.com/mypreferences/d/download-my-data";
 
 function Field({ id, label, hint, children }: { id: string; label: string; hint?: string; children: React.ReactNode }) {
   return (
@@ -35,24 +40,134 @@ function Field({ id, label, hint, children }: { id: string; label: string; hint?
   );
 }
 
+const same = (a: string, b: string) => a.toLowerCase() === b.toLowerCase();
+
+/** Click to pick as many as fit; type to add your own. */
+function Picks({ k, label, hint, options, value, onChange }: {
+  k: PickKey; label: string; hint: string; options: string[]; value: string[]; onChange: (v: string[]) => void;
+}) {
+  const [own, setOwn] = useState("");
+  const add = () => { const x = own.trim(); if (x && !value.some((y) => same(x, y))) onChange([...value, x]); setOwn(""); };
+  const extra = value.filter((x) => !options.some((o) => same(o, x)));
+  return (
+    <fieldset className="flex flex-col gap-2" data-testid={`picks-${k}`}>
+      <legend className="mb-2 text-sm font-medium leading-none">{label}</legend>
+      <div className="flex flex-wrap gap-2">
+        {[...options, ...extra].map((o) => {
+          const on = value.some((x) => same(x, o));
+          return (
+            <button type="button" key={o} aria-pressed={on} onClick={() => onChange(toggle(value, o))}
+              className={`rounded-full border px-3 py-1.5 text-sm transition-colors ${on ? "border-primary bg-primary/10 font-medium text-primary" : "text-muted-foreground hover:bg-muted"}`}>
+              <span aria-hidden>{on ? "✓ " : "+ "}</span>{o}
+            </button>
+          );
+        })}
+      </div>
+      <div className="flex gap-2">
+        <Input aria-label={`Add your own: ${label}`} placeholder="Add your own" value={own} className="max-w-sm"
+          onChange={(e) => setOwn(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); add(); } }} />
+        <Button type="button" variant="outline" onClick={add} disabled={!own.trim()}>Add</Button>
+      </div>
+      <p className="text-xs text-muted-foreground">{hint}</p>
+    </fieldset>
+  );
+}
+
 type Example = { role: string; audience: string; goals: string; facts: string; samples: [string, string, string]; topics: string; noGo: string };
+
+const mergeLines = (a: string, b: string[]) => {
+  const seen = new Set<string>();
+  return [...a.split("\n"), ...b].map((x) => x.trim()).filter((x) => x && !seen.has(x.toLowerCase()) && seen.add(x.toLowerCase())).join("\n");
+};
 
 export function Stepper({ initial, example, returnToApp }: { initial: Initial; example?: Example; returnToApp?: boolean }) {
   const router = useRouter();
   const [step, setStep] = useState(Math.min(Math.max(initial.step, 1), 3));
   const [v, setV] = useState(initial);
+  // A list nobody has touched shows the defaults for what the person does, and follows it as they type.
+  const [touched, setTouched] = useState<Record<PickKey, boolean>>(() => ({
+    audience: initial.audience.length > 0, goals: initial.goals.length > 0, topics: initial.topics.length > 0,
+    noGo: initial.noGo.length > 0 || initial.step > 2, style: initial.style.length > 0 || initial.step > 2,
+  }));
+  const [suggested, setSuggested] = useState<Partial<Lists>>({});
+  const [li, setLi] = useState<LinkedInProfile | null>(null);
+  const [pasted, setPasted] = useState("");
   const [pending, start] = useTransition();
+  const [filling, startFill] = useTransition();
+  const file = useRef<HTMLInputElement>(null);
   const set = <K extends keyof Initial>(k: K, val: Initial[K]) => setV((x) => ({ ...x, [k]: val }));
 
+  const picks = useMemo(() => picksFor(v.role, v.audience.join(" ")), [v.role, v.audience]);
+  const options = (k: PickKey) => {
+    const base = picks[k].map((p) => p.label);
+    return [...(suggested[k] ?? []).filter((x) => !base.some((b) => same(b, x))), ...base];
+  };
+  const list = (k: PickKey) => (touched[k] ? v[k] : defaultsOf(picks[k]));
+  const setList = (k: PickKey) => (val: string[]) => { setTouched((t) => ({ ...t, [k]: true })); set(k, val); };
+
+  const apply = (s: SetupSuggestion) => {
+    setV((x) => {
+      const samples = [...x.samples] as Initial["samples"];
+      let i = 0;
+      for (const t of s.samples) { while (i < 3 && samples[i].trim()) i++; if (i < 3) samples[i++] = t; }
+      return { ...x, role: x.role.trim() ? x.role : s.role, facts: mergeLines(x.facts, s.facts), samples,
+        audience: s.audience, goals: s.goals, topics: s.topics, noGo: s.noGo, style: s.style };
+    });
+    setTouched({ audience: true, goals: true, topics: true, noGo: true, style: true });
+    setSuggested({ audience: s.audience, goals: s.goals, topics: s.topics, noGo: s.noGo, style: s.style });
+    const what = [s.role && "what you do", s.facts.length && `${s.facts.length} facts`, s.samples.length && `${s.samples.length} of your posts`, "your picks"].filter(Boolean).join(", ");
+    toast.success(`Filled in ${what}${s.from.length ? ` from ${s.from.join(" and ")}` : ""}. Check each answer, then save.`);
+  };
+
+  const run = async (linkedin: LinkedInProfile | null) => {
+    if (!linkedin && !pasted.trim() && !v.role.trim()) { toast.error("Upload your LinkedIn export or paste your profile, or type what you do first."); return; }
+    const res = await quickFill({
+      linkedin: linkedin ?? undefined, pasted: pasted.trim() || undefined, role: v.role, facts: v.facts,
+      audience: touched.audience ? v.audience : [], goals: touched.goals ? v.goals : [],
+    });
+    if (!res.ok) { toast.error(res.error); return; }
+    apply(res.suggestion);
+  };
+  const fill = () => startFill(() => run(li));
+
+  const upload = (files: FileList | null) => startFill(async () => {
+    if (!files?.length) return;
+    try {
+      const texts: Record<string, string> = {};
+      for (const f of Array.from(files)) {
+        if (/\.zip$/i.test(f.name)) Object.assign(texts, await readTexts(f, wanted));
+        else if (wanted(f.name)) texts[f.name] = await f.text();
+      }
+      const p = readExport(texts);
+      if (!hasContent(p)) { toast.error("No profile, positions, skills or posts in that file. Upload the LinkedIn export .zip as it came."); return; }
+      setLi(p);
+      await run(p);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Couldn't read that file.");
+    } finally { if (file.current) file.current.value = ""; }
+  });
+
   const submit = () => start(async () => {
-    const res = step === 1 ? await saveAbout({ role: v.role, audience: v.audience, goals: v.goals, facts: v.facts })
-      : step === 2 ? await saveVoice({ samples: v.samples, topics: v.topics, noGo: v.noGo })
+    const res = step === 1 ? await saveAbout({ role: v.role, audience: joinList("audience", list("audience")), goals: joinList("goals", list("goals")), facts: v.facts })
+      : step === 2 ? await saveVoice({ samples: v.samples, style: list("style"), topics: joinList("topics", list("topics")), noGo: joinList("noGo", list("noGo")) })
       : await saveRhythm({ perWeek: v.perWeek, days: v.days as never, time: v.time, tz: Intl.DateTimeFormat().resolvedOptions().timeZone, model: v.model });
     if (!res.ok) { toast.error(res.error); return; }
     if (step < 3) { setStep(step + 1); window.scrollTo({ top: 0 }); }
     else if (returnToApp) { window.location.assign("app.cadence.ios://subscribed"); } // back to the iPhone app
     else { toast.success("You're set up. Your first check-in is next."); router.push("/app"); }
   });
+
+  const fillExample = (e: Example) => {
+    if (step === 1) {
+      setV((x) => ({ ...x, role: e.role, audience: splitList("audience", e.audience), goals: splitList("goals", e.goals), facts: e.facts }));
+      setTouched((t) => ({ ...t, audience: true, goals: true }));
+    } else {
+      setV((x) => ({ ...x, samples: e.samples, topics: splitList("topics", e.topics), noGo: splitList("noGo", e.noGo) }));
+      setTouched((t) => ({ ...t, topics: true, noGo: true }));
+    }
+  };
+
+  const readFromLi = li && [li.headline && "headline", li.positions.length && `${li.positions.length} roles`, li.skills.length && `${li.skills.length} skills`, li.posts.length && `${li.posts.length} posts`].filter(Boolean).join(", ");
 
   return (
     <div className="flex flex-col gap-6">
@@ -64,49 +179,72 @@ export function Stepper({ initial, example, returnToApp }: { initial: Initial; e
         <h1 className="text-2xl font-semibold tracking-tight">{TITLES[step - 1]}</h1>
         <p className="mt-2 text-muted-foreground">{WHY[step - 1]}</p>
         {example && step < 3 && (
-          <Button type="button" variant="link" className="mt-1 px-0" onClick={() => setV((x) => step === 1
-            ? { ...x, role: example.role, audience: example.audience, goals: example.goals, facts: example.facts }
-            : { ...x, samples: example.samples, topics: example.topics, noGo: example.noGo })}>
-            Fill in the example answers (demo)
-          </Button>
+          <Button type="button" variant="link" className="mt-1 px-0" onClick={() => fillExample(example)}>Fill in the example answers (demo)</Button>
         )}
       </div>
 
       {step === 1 && (
-        <p className="rounded-lg border border-dashed p-3 text-sm text-muted-foreground" data-testid="bring-history">
-          <span className="font-medium text-foreground">Optional: bring your AI history.</span> Upload a ChatGPT or Claude export and Cadence suggests your facts,
-          topics and sample posts from it. <Link href="/onboarding/import" className="font-medium text-primary underline underline-offset-4">Import from ChatGPT or Claude</Link>
-        </p>
+        <section className="flex flex-col gap-3 rounded-lg border border-primary/30 bg-primary/5 p-4" data-testid="quick-fill">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <h2 className="font-medium">Quick fill from your LinkedIn</h2>
+              <p className="mt-1 max-w-md text-sm text-muted-foreground">
+                LinkedIn sign-in shares only your name, email and photo. Add your profile below and Cadence fills in this page and the next:
+                what you do, your facts, your posts and your picks.
+              </p>
+            </div>
+            <Button type="button" onClick={fill} disabled={filling}>{filling ? "Filling…" : "Quick fill"}</Button>
+          </div>
+          <div className="flex flex-col gap-1 text-sm">
+            <label className="font-medium" htmlFor="li-export">Upload your LinkedIn export <span className="font-normal text-muted-foreground">(most complete: roles, skills and posts)</span></label>
+            <input ref={file} id="li-export" type="file" accept=".zip,.csv" multiple disabled={filling} onChange={(e) => upload(e.target.files)}
+              className="text-sm file:mr-3 file:rounded-md file:border file:bg-background file:px-3 file:py-1.5 file:text-sm" />
+            <p className="text-xs text-muted-foreground">
+              Get it from <a href={EXPORT_URL} target="_blank" rel="noreferrer" className="font-medium text-primary underline underline-offset-4">LinkedIn → Get a copy of your data</a>:
+              choose Profile, Positions, Skills and Shares. LinkedIn emails a link, usually within minutes. Only those files leave your browser.
+            </p>
+            {readFromLi && <p className="text-xs" data-testid="li-read">Read from your export: {readFromLi}.</p>}
+          </div>
+          <details className="text-sm">
+            <summary className="cursor-pointer font-medium">Or paste your profile <span className="font-normal text-muted-foreground">(instant)</span></summary>
+            <p className="my-1 text-xs text-muted-foreground">Open your LinkedIn profile, select all (⌘A or Ctrl+A), copy, paste it here, then press Quick fill.</p>
+            <Textarea aria-label="Pasted LinkedIn profile" rows={4} value={pasted} onChange={(e) => setPasted(e.target.value)} />
+          </details>
+          <p className="text-xs text-muted-foreground" data-testid="bring-history">
+            Have a ChatGPT or Claude history? <Link href="/onboarding/import" className="font-medium text-primary underline underline-offset-4">Import from ChatGPT or Claude</Link> and
+            Cadence suggests facts, topics and posts from it.
+          </p>
+        </section>
+      )}
+
+      {step === 2 && (
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-dashed p-3 text-sm" data-testid="quick-fill">
+          <span className="text-muted-foreground">The ticked picks suit what you do. Change any of them, or let Cadence choose from your answers{li ? " and your LinkedIn export" : ""}.</span>
+          <Button type="button" variant="outline" onClick={fill} disabled={filling}>{filling ? "Filling…" : "Quick fill"}</Button>
+        </div>
       )}
 
       <form className="flex flex-col gap-6" onSubmit={(e) => { e.preventDefault(); submit(); }}>
         {step === 1 && <>
-          <Field id="role" label="What do you do?" hint="e.g. Founder of a property-tech startup, ex-banker">
+          <Field id="role" label="What do you do?" hint="In your own words, e.g. Swing trader who teaches options; founder of a property-tech startup">
             <Input id="role" value={v.role} onChange={(e) => set("role", e.target.value)} required />
           </Field>
-          <Field id="audience" label="Who do you want to reach?" hint="e.g. CFOs at mid-size lenders; engineers who build AI agents">
-            <Input id="audience" value={v.audience} onChange={(e) => set("audience", e.target.value)} required />
-          </Field>
-          <Field id="goals" label="What should posting do for you?" hint="e.g. Find design partners, get hired, build a following in my niche">
-            <Textarea id="goals" rows={2} value={v.goals} onChange={(e) => set("goals", e.target.value)} required />
-          </Field>
+          <Picks k="audience" label="Who do you want to reach?" hint="Pick as many as fit. The suggestions follow what you do." options={options("audience")} value={list("audience")} onChange={setList("audience")} />
+          <Picks k="goals" label="What should posting do for you?" hint="Pick one or two, or add your own if yours is more specific." options={options("goals")} value={list("goals")} onChange={setList("goals")} />
           <Field id="facts" label="Facts Cadence may state about you" hint="One per line: employers, roles, numbers, results, credentials. Anything not here stays out of your posts.">
             <Textarea id="facts" rows={6} value={v.facts} onChange={(e) => set("facts", e.target.value)} placeholder={"Led a 12-person platform team at Acme Bank, 2021–2024\nCut loan processing time from 9 days to 2\nBased in Atlanta"} required />
           </Field>
         </>}
 
         {step === 2 && <>
+          <Picks k="topics" label="Topics you want to be known for" hint="Pick three to five. Add your own for anything specific to you." options={options("topics")} value={list("topics")} onChange={setList("topics")} />
+          <Picks k="noGo" label="Never write about" hint="Cadence keeps these out of every draft. The ticked ones suit most people." options={options("noGo")} value={list("noGo")} onChange={setList("noGo")} />
+          <Picks k="style" label="How do you sound?" hint="Enough to start on its own. Your own posts below make the match closer." options={options("style")} value={list("style")} onChange={setList("style")} />
           {[0, 1, 2].map((i) => (
-            <Field key={i} id={`sample${i}`} label={`A post you've written (${i + 1} of 3)`} hint={i === 0 ? "Paste the full text. Posts that did well are best; any three of yours will do." : undefined}>
+            <Field key={i} id={`sample${i}`} label={`A post you've written (${i + 1} of 3)`} hint={i === 0 ? "Optional once you've picked how you sound. Posts that did well are best; paste the full text." : undefined}>
               <Textarea id={`sample${i}`} rows={5} value={v.samples[i]} onChange={(e) => { const s = [...v.samples] as Initial["samples"]; s[i] = e.target.value; set("samples", s); }} />
             </Field>
           ))}
-          <Field id="topics" label="Topics you want to be known for" hint="Comma-separated or one per line">
-            <Textarea id="topics" rows={2} value={v.topics} onChange={(e) => set("topics", e.target.value)} required />
-          </Field>
-          <Field id="nogo" label="Never write about" hint="Optional: employers you can't mention, politics, anything off-limits">
-            <Textarea id="nogo" rows={2} value={v.noGo} onChange={(e) => set("noGo", e.target.value)} />
-          </Field>
         </>}
 
         {step === 3 && <>
@@ -149,7 +287,7 @@ export function Stepper({ initial, example, returnToApp }: { initial: Initial; e
 
         <div className="flex items-center justify-between gap-3">
           <Button type="button" variant="ghost" disabled={step === 1 || pending} onClick={() => setStep(step - 1)}>Back</Button>
-          <Button type="submit" size="lg" disabled={pending}>{pending ? "Saving…" : step < 3 ? "Save and continue" : "Finish setup"}</Button>
+          <Button type="submit" size="lg" disabled={pending || filling}>{pending ? "Saving…" : step < 3 ? "Save and continue" : "Finish setup"}</Button>
         </div>
       </form>
     </div>

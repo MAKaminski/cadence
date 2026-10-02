@@ -9,6 +9,20 @@ All notable changes to Cadence. The format follows [Keep a Changelog](https://ke
 - `/app/inputs` no longer logs an error for someone who hasn't finished setup (they were already sent to setup).
 
 ### Added
+- **Setup: Quick fill and quick picks** (`/onboarding`, steps 1 and 2). Most people should be able to click through setup instead of typing it.
+  - **Quick picks**: audience, goals, topics, the never-list and a new **How do you sound?** are chips. You can pick several at once and add your own.
+    - The options follow what you say you do (`src/lib/setup-picks.ts`): trader, founder, engineer, sales and marketing, finance, consultant, product and design, recruiter, job seeker, creator.
+    - The defaults are deliberate and come pre-ticked. For example, a trader's never-list starts with *Personalized investment advice* and *Promises of returns*, and everyone's with *Politics*, *Religion* and *Confidential employer information*.
+  - **Quick fill from your LinkedIn**: LinkedIn sign-in shares only a name, an email and a photo, so setup asks for the profile itself, in one of two ways:
+    - Upload the LinkedIn data export (`.zip` or its CSVs). The browser reads only Profile, Positions, Education, Skills and Shares out of it (`src/lib/zip-lite.ts`); messages and connections never leave the browser.
+    - Or paste the text of your profile page.
+  - **What Quick fill fills in**, across both steps:
+    - what you do, from your headline;
+    - facts built only from the export: each role with its employer and years, your education, your location;
+    - three of your recent posts, as voice samples;
+    - the picks.
+  - Claude drafts the picks and reads pasted text when `ANTHROPIC_API_KEY` is set; otherwise rules do the same job. Each run is recorded as usage (`setup` / `quick fill`), with its cost.
+  - The voice step now accepts picked style traits in place of posts, for people who haven't posted yet. The writer reads them as `STYLE`, beside the samples. Where samples are set on their own (Settings, the API), two posts are still required.
 - **Usage across features** (`/app/admin/usage?feature=`): the operator page switches between Examples and AI history import, with the same totals, 30-day chart, by-action table and most active people for each; the flag card shows only for flagged features, and import adds messages kept and suggestions accepted. A consolidated end-to-end test (`e2e/journey.spec.ts`) takes one person through import, setup, Inputs, X, examples, drafts on both channels, numbers, Results, Settings and usage.
 - **Inputs and the nav, consolidated with Settings, import and post numbers**: Inputs also lists your AI history (Increase while import suggestions wait or you have fewer than 5 facts), post numbers (Increase while a LinkedIn post over a day old has none and they aren't read automatically), your name and photo, and your billing plan (when annual is offered). The nav's single Settings entry is your photo, name and the gear, in the Report + edit group; Published moves to Report + edit (you add numbers there); AI history sits under Inputs. Import and Published link back to All inputs.
 - **Inputs** (`/app/inputs`): every input you give Cadence on one page, grouped by what it drives (who you are, how you sound, what drafts learn from, how much and when, where it goes). Each one has its editable control, a line on what it is, what it drives and where it lives, a link to its home page, and a **direction** (Maintain, Increase or Decrease) worked out from your results, with the reason and a link to the Results chart or page that shows it. "How this direction is set" spells out each rule; the page opens with the current strategy (from posts a week against your last 4 weeks and engagement).

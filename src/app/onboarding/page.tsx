@@ -9,6 +9,7 @@ import { Stepper } from "./stepper";
 import { InputsLink } from "@/components/inputs-link";
 import { isDemo } from "@/lib/mode";
 import { PERSONA } from "@/lib/demo-persona";
+import { splitList } from "@/lib/setup-picks";
 
 export const metadata: Metadata = { title: "Set up" };
 
@@ -32,8 +33,9 @@ export default async function OnboardingPage({ searchParams }: { searchParams: P
         {editing && <p className="mb-6"><InputsLink page="/onboarding" /></p>}
         <Stepper returnToApp={fromIos} example={isDemo() ? PERSONA : undefined} initial={{
           step: editing ? Math.min(3, Math.max(1, Number(q.step) || 1)) : (p?.onboardingStep ?? 1),
-          role: str(about.role), audience: str(about.audience), goals: str(about.goals), facts: list(p?.facts).join("\n"),
-          samples: [samples[0] ?? "", samples[1] ?? "", samples[2] ?? ""], topics: list(p?.topics).join(", "), noGo: list(p?.noGo).join(", "),
+          role: str(about.role), audience: splitList("audience", str(about.audience)), goals: splitList("goals", str(about.goals)),
+          facts: list(p?.facts).join("\n"), style: list(about.style),
+          samples: [samples[0] ?? "", samples[1] ?? "", samples[2] ?? ""], topics: list(p?.topics), noGo: list(p?.noGo),
           perWeek: Number(cadence.perWeek ?? 3), days: list(cadence.days).length ? list(cadence.days) : ["Tue", "Wed", "Thu"],
           time: str(cadence.time) || "09:00", model: p?.model ?? "claude-sonnet-5",
         }} />

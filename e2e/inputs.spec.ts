@@ -50,7 +50,7 @@ test("inputs: every input in one place, edited there or on its home page, each s
   await expect(page.getByText("Topics saved.")).toBeVisible();
   await topics.getByRole("link", { name: /On Setup/ }).click();
   await expect(page.getByText("Step 2 of 3")).toBeVisible();
-  await expect(page.locator("#topics")).toHaveValue(/Pricing experiments/);
+  await expect(page.getByTestId("picks-topics").getByRole("button", { name: "Pricing experiments" })).toHaveAttribute("aria-pressed", "true");
 });
 
 test("inputs: the demo's sample histories turn the directions", async ({ page }) => {

@@ -17,12 +17,17 @@ export const aboutSchema = z.object({
   goals: z.string().trim().min(2, "What do you want posting to do for you?").max(500),
   facts: z.string().trim().min(10, "Add at least one fact. Cadence only states facts from this list.").max(5000),
 });
+const samplesList = z.array(z.string().trim()).length(3);
+const twoPosts = (a: string[]) => a.filter((s) => s.length >= 80).length >= 2;
+/** Voice samples on their own (Settings, the API): at least two real posts. */
+export const samplesSchema = samplesList.refine(twoPosts, "Paste at least two posts of a few sentences each.");
+/** Setup's voice step: two real posts, or a few picks for how the person sounds when they have none yet. */
 export const voiceSchema = z.object({
-  samples: z.array(z.string().trim()).length(3)
-    .refine((a) => a.filter((s) => s.length >= 80).length >= 2, "Paste at least two posts of a few sentences each."),
+  samples: samplesList,
+  style: z.array(z.string().trim().min(1).max(80)).max(12).default([]),
   topics: z.string().trim().min(2, "Name a topic or two you want to be known for.").max(1000),
   noGo: z.string().trim().max(1000),
-});
+}).refine((v) => twoPosts(v.samples) || v.style.length > 0, { message: "Paste two of your posts, or pick how you sound.", path: ["samples"] });
 export const rhythmSchema = z.object({
   perWeek: z.coerce.number().int().min(1).max(5),
   days: z.array(z.enum(DAYS)).min(1, "Pick at least one day."),
@@ -33,6 +38,8 @@ export const rhythmSchema = z.object({
 
 export type Profile = {
   role: string; audience: string; goals: string; facts: string[];
+  /** How the person sounds, picked in setup (the writer reads it beside the samples). */
+  style: string[];
   voiceSamples: string[]; topics: string[]; noGo: string[];
   cadence: { perWeek: number; days: string[]; time: string; tz: string };
   model: (typeof MODELS)[number]; autoPublish: boolean; setupComplete: boolean;
@@ -41,9 +48,11 @@ export type Profile = {
 export async function getProfile(userId: string): Promise<Profile | null> {
   const [p] = await asUser(userId, (tx) => tx.select().from(profiles).where(eq(profiles.userId, userId)));
   if (!p) return null;
-  const about = p.about as Record<string, string>;
+  const about = p.about as Record<string, unknown>;
+  const str = (x: unknown) => (typeof x === "string" ? x : "");
   return {
-    role: about.role ?? "", audience: about.audience ?? "", goals: about.goals ?? "",
+    role: str(about.role), audience: str(about.audience), goals: str(about.goals),
+    style: Array.isArray(about.style) ? about.style.map(String) : [],
     facts: p.facts as string[], voiceSamples: p.voiceSamples as string[], topics: p.topics as string[], noGo: p.noGo as string[],
     cadence: p.cadence as Profile["cadence"], model: p.model, autoPublish: p.autoPublish, setupComplete: p.onboardingStep > 3,
   };
@@ -73,7 +82,7 @@ export const profilePatch = z.object({
 export async function patchProfile(userId: string, patch: z.infer<typeof profilePatch>) {
   const current = await getProfile(userId);
   const values: Partial<typeof profiles.$inferInsert> = {};
-  if (patch.role || patch.audience || patch.goals) values.about = { role: patch.role ?? current?.role, audience: patch.audience ?? current?.audience, goals: patch.goals ?? current?.goals };
+  if (patch.role || patch.audience || patch.goals) values.about = { role: patch.role ?? current?.role, audience: patch.audience ?? current?.audience, goals: patch.goals ?? current?.goals, style: current?.style ?? [] };
   if (patch.facts) values.facts = patch.facts;
   if (patch.topics) values.topics = patch.topics;
   if (patch.noGo) values.noGo = patch.noGo;
@@ -86,7 +95,7 @@ export async function patchProfile(userId: string, patch: z.infer<typeof profile
 
 /** The three voice samples on their own, with setup's rule (at least two real posts). */
 export async function setVoiceSamples(userId: string, samples: string[]) {
-  const p = voiceSchema.shape.samples.safeParse(samples);
+  const p = samplesSchema.safeParse(samples);
   if (!p.success) throw new ServiceError("invalid", p.error.issues[0]?.message ?? "Paste at least two posts.");
   await saveProfile(userId, { voiceSamples: p.data.filter(Boolean) });
 }
