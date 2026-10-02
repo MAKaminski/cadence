@@ -13,7 +13,8 @@ export type Model = "claude-sonnet-5" | "claude-opus-5";
 export const PRICES: Record<Model, [number, number]> = { "claude-sonnet-5": [2, 10], "claude-opus-5": [5, 25] };
 
 export type Brief = {
-  about: { role?: string; audience?: string; goals?: string };
+  /** `style`: how the person sounds, picked in setup; it stands in for samples until they have posts. */
+  about: { role?: string; audience?: string; goals?: string; style?: string[] };
   facts: string[]; voiceSamples: string[]; topics: string[]; noGo: string[];
   notes: string; recent: string[]; count: number; model: Model;
   /** What the person's rated examples teach (src/services/examples.ts guidanceText), or absent. */
@@ -49,7 +50,7 @@ Hard rules:
 - First line under ${LIMITS.hookChars} characters: it is all most readers see before "see more".
 - Aim for ${Math.round(LIMITS.targetChars * 0.7)}–${LIMITS.targetChars} characters. At most ${LIMITS.maxHashtags} hashtags, at the end, or none.
 - Avoid these phrases: ${BANNED_PHRASES.join("; ")}.
-- Match the person's own sentence length, tone and habits from their SAMPLES. Don't copy the samples.
+- Match the person's own sentence length, tone and habits from their SAMPLES, and their STYLE when given. Don't copy the samples.
 - Don't repeat a point from RECENT posts.`;
 
 const Output = z.object({
@@ -62,7 +63,7 @@ const Output = z.object({
 
 function profileBlock(b: Brief) {
   const list = (xs: string[]) => xs.map((x) => `- ${x}`).join("\n") || "- (none)";
-  return `WHO: ${b.about.role ?? ""}\nAUDIENCE: ${b.about.audience ?? ""}\nGOAL: ${b.about.goals ?? ""}\n\nFACTS:\n${list(b.facts)}\n\nTOPICS:\n${list(b.topics)}\n\nNEVER:\n${list(b.noGo)}\n\nSAMPLES:\n${b.voiceSamples.map((s, i) => `--- sample ${i + 1}\n${s}`).join("\n")}`;
+  return `WHO: ${b.about.role ?? ""}\nAUDIENCE: ${b.about.audience ?? ""}\nGOAL: ${b.about.goals ?? ""}\n\nFACTS:\n${list(b.facts)}\n\nTOPICS:\n${list(b.topics)}\n\nNEVER:\n${list(b.noGo)}${b.about.style?.length ? `\n\nSTYLE: ${b.about.style.join("; ")}` : ""}\n\nSAMPLES:\n${b.voiceSamples.map((s, i) => `--- sample ${i + 1}\n${s}`).join("\n") || "(none yet: follow STYLE)"}`;
 }
 
 /** What one response cost, from its token counts and PRICES. */
