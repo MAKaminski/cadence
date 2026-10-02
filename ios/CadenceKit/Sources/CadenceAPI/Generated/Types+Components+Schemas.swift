@@ -731,6 +731,9 @@ extension Components {
                     case angle = "angle"
                     case weekday = "weekday"
                     case length = "length"
+                    case hook = "hook"
+                    case time = "time"
+                    case score = "score"
                 }
                 /// - Remark: Generated from `#/components/schemas/Impact/WhatWorksPayload/dimension`.
                 public var dimension: Components.Schemas.Impact.WhatWorksPayloadPayload.DimensionPayload
