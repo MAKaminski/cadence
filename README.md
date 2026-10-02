@@ -188,7 +188,7 @@ See [ARCHITECTURE.md](ARCHITECTURE.md) for the generated ERD, which tables each 
    Optional, for annual billing: add a second, yearly recurring price to the same product at 20% off twelve months (at $20/month: 12 × $20 × 0.8 = $192/year) and put its ID in `deploy/.env` as `STRIPE_ANNUAL_PRICE_ID`. Settings → Billing then offers subscribers "Switch to annual"; without it the offer stays hidden. In the Stripe customer portal settings, allow customers to switch plans so the switch can be confirmed there.
 3. On any Linux server with Docker (Cadence runs on an Oracle Cloud Always Free ARM VM): `deploy/setup-vm.sh` installs Docker, opens ports 80 and 443 and clones the repo. Point your domain's DNS at the server.
 4. Copy `deploy/env.example` to `deploy/.env` (mode 600) and fill it in; never commit it. Treat `BETTER_AUTH_SECRET` as permanent: it encrypts stored LinkedIn tokens and the OAuth signing keys, so rotating it means everyone reconnects (and you must clear the `jwks` table).
-5. `docker compose -f deploy/compose.yml --env-file deploy/.env up -d --build` runs migrations, then the web app, worker, Caddy (automatic HTTPS) and a nightly database backup. Later deploys: `CADENCE_HOST=opc@IP deploy/deploy.sh`.
+5. `docker compose -f deploy/compose.yml --env-file deploy/.env up -d --build` runs migrations, then the web app, worker, Caddy (automatic HTTPS) and a nightly database backup. Later deploys: automatic (step 8), or by hand with `CADENCE_HOST=opc@IP deploy/deploy.sh`.
 6. **Check sign-in.** `deploy/deploy.sh` runs `deploy/check-env.sh`, which prints one line per sign-in setting (never a value) and stops the deploy only when `BETTER_AUTH_URL`, `BETTER_AUTH_SECRET` or `POSTGRES_PASSWORD` would break sign-in for everyone. People need at least one way in: the LinkedIn keys, or `RESEND_API_KEY` and `EMAIL_FROM`; new accounts then need Stripe to start their trial. The same report, from inside the app's container:
    ```bash
    docker compose -f deploy/compose.yml --env-file deploy/.env run --rm web pnpm signin:check
@@ -198,6 +198,15 @@ See [ARCHITECTURE.md](ARCHITECTURE.md) for the generated ERD, which tables each 
    ```bash
    docker compose -f deploy/compose.yml --env-file deploy/.env run --rm web pnpm signin:link you@example.com --comp
    ```
+8. **Automatic deploys** (optional). `.github/workflows/deploy.yml` ships `main` to the server after CI passes on it, then checks that `/login` and `/api/auth/get-session` answer 200. Actions → deploy → *Run workflow* redeploys on demand, for example after changing `deploy/.env`.
+   - **Set it up once, from your own computer** (the one that can already SSH to the server):
+     ```bash
+     CADENCE_HOST=opc@IP CADENCE_URL=https://YOUR_DOMAIN REPO=you/cadence deploy/setup-auto-deploy.sh
+     ```
+   - **What the setup does:** it makes a deploy-only key and installs it on the server, locked (`command=` in `authorized_keys`) to `deploy/remote-deploy.sh`. It then checks that the key is refused anything else. Finally it sets the `CADENCE_SSH_KEY`, `CADENCE_HOST` and `CADENCE_KNOWN_HOSTS` secrets and the `CADENCE_URL` variable, with the `gh` CLI or by telling you where to paste them.
+   - **What the key can do:** deploy a commit that is on `origin/main`, one deploy at a time, and nothing else (no shell, no port forwarding).
+   - **When it runs:** only `main`'s own green CI runs deploy. Pull requests never do. Until the secrets exist, the workflow does nothing.
+   - **Requiring approval:** add required reviewers to the `production` environment if you want a person to approve each deploy.
 
 ## Development
 
