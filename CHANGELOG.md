@@ -9,6 +9,11 @@ All notable changes to Cadence. The format follows [Keep a Changelog](https://ke
 - `/app/inputs` no longer logs an error for someone who hasn't finished setup (they were already sent to setup).
 
 ### Added
+- **Inputs, in tabs** (`/app/inputs?tab=`):
+  - One tab per group: Who you are, How you sound, What drafts learn from, How much and when, Where it goes, Your account. The page is no longer one long scroll.
+  - Each tab shows a badge with the number of its inputs your results say to raise or lower.
+  - The tab bar stays in view as you scroll.
+  - Each page's **All inputs →** link opens the tab with that page's inputs.
 - **Setup: your three best-performing posts** (step 2). LinkedIn's export has post text but no numbers, and its API keeps both behind partner scopes, so step 2 asks for the Activity page instead.
   - **How:** open your Activity page, select all, copy and paste. Cadence reads each of your own posts with its reactions, comments and reposts (`src/lib/activity-posts.ts`); reposts of other people's posts and posts under 80 characters are left out.
   - **Ranking:** posts are ranked by reactions + 2 × comments + 3 × reposts, and the top three are ticked and fill the three sample boxes. For example, 1,200 reactions, 96 comments and 40 reposts score 1,200 + 192 + 120 = 1,512.

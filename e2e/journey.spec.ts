@@ -50,7 +50,7 @@ test("journey: import, set up, Inputs, X, examples, drafts on both channels, num
   await nav(page).getByRole("link", { name: "Inputs", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Inputs", level: 1 })).toBeVisible();
   await expect(page.getByTestId("input-facts").getByRole("textbox")).toHaveValue(new RegExp(FACT));
-  const history = page.getByTestId("input-history");
+  const history = page.getByTestId("input-history"); // on the first tab, with the facts
   await expect(history.locator('[data-direction="increase"]')).toBeVisible(); // the other suggestions wait for review
   await expect(history.getByRole("button", { name: "Import or review suggestions" })).toHaveAttribute("href", "/app/import");
 
@@ -136,7 +136,7 @@ test("journey: import, set up, Inputs, X, examples, drafts on both channels, num
   await expect(page.getByTestId("billing-summary")).toContainText("$192 / year");
 
   // 11. Inputs reflects Settings: the billing row now reads annual; the profile row points to Settings.
-  await page.goto("/app/inputs");
+  await page.goto("/app/inputs?tab=account");
   await expect(page.getByTestId("input-billing")).toContainText("Billed annually.");
   await expect(page.getByTestId("input-profile").getByRole("link", { name: "On Settings" })).toHaveAttribute("href", "/app/settings#profile");
 

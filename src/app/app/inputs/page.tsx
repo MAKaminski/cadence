@@ -6,7 +6,7 @@ import { requireSubscriber } from "@/lib/session";
 import { isDemo } from "@/lib/mode";
 import { PERSONA } from "@/lib/demo-persona";
 import { PLANNER } from "@/lib/catalog";
-import { advise, GROUPS, INPUTS, strategy, type InputDef } from "@/lib/inputs";
+import { advise, GROUPS, INPUTS, strategy, type InputDef, type InputGroup } from "@/lib/inputs";
 import { signals } from "@/services/inputs";
 import { AdviceLine, DirectionChip, DIRECTIONS } from "@/components/direction";
 import { CheckinForm } from "../checkin-form";
@@ -16,7 +16,8 @@ import * as E from "./editors";
 
 export const metadata: Metadata = { title: "Inputs" };
 
-export default async function InputsPage() {
+export default async function InputsPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
+  const q = await searchParams;
   const user = await requireSubscriber();
   const { signals: s, plan, profile, channels, examplesOn } = await signals(user.id);
   // The layout sends anyone without a finished setup to /onboarding, but Next renders this page alongside it.
@@ -25,6 +26,11 @@ export default async function InputsPage() {
   const shown = INPUTS.filter((i) => (!i.flag || examplesOn) && (i.only !== "annual" || s.billing));
   const head = strategy(s);
   const live = channels.filter((c) => c.status === "live");
+  // One tab per group, so the page is never one long scroll. A badge counts the inputs your results say
+  // to change (raise or lower), so it's clear which tab to open.
+  const groups = GROUPS.filter((g) => shown.some((i) => i.group === g.id));
+  const tab: InputGroup = groups.find((g) => g.id === q.tab)?.id ?? groups[0].id;
+  const toChange = (g: InputGroup) => shown.filter((i) => i.group === g && advise(i.id, s).direction !== "maintain").length;
 
   const editor = (i: InputDef) => {
     const p = profile;
@@ -72,12 +78,22 @@ export default async function InputsPage() {
           {(Object.keys(DIRECTIONS) as (keyof typeof DIRECTIONS)[]).map((d) => <DirectionChip key={d} d={d} />)}
           <span>from your last 4 weeks on Results. Open a rule under each input to see exactly when it changes.</span>
         </p>
-        <nav aria-label="Input groups" className="flex flex-wrap gap-2">
-          {GROUPS.map((g) => <a key={g.id} href={`#${g.id}`} className="rounded-full border px-3 py-1 text-sm hover:bg-muted">{g.title}</a>)}
-        </nav>
       </div>
 
-      {GROUPS.map((g) => {
+      <nav aria-label="Input groups" data-testid="input-tabs" className="sticky top-0 z-10 -mx-1 flex gap-1 overflow-x-auto border-b bg-background px-1">
+        {groups.map((g) => {
+          const n = toChange(g.id), on = g.id === tab;
+          return (
+            <Link key={g.id} href={`/app/inputs?tab=${g.id}`} aria-current={on ? "page" : undefined} scroll={false}
+              className={`-mb-px flex shrink-0 items-center gap-1.5 border-b-2 px-3 py-2 text-sm ${on ? "border-primary font-medium text-foreground" : "border-transparent text-muted-foreground hover:text-foreground"}`}>
+              {g.title}
+              {n > 0 && <span className="rounded-full bg-primary/10 px-1.5 text-xs font-medium tabular-nums text-primary" aria-label={`${n} to change`}>{n}</span>}
+            </Link>
+          );
+        })}
+      </nav>
+
+      {GROUPS.filter((g) => g.id === tab).map((g) => {
         const items = shown.filter((i) => i.group === g.id);
         if (!items.length) return null;
         return (

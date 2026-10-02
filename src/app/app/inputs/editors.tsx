@@ -161,7 +161,7 @@ export function PauseEditor({ paused }: { paused: boolean }) {
 }
 
 function ChannelRow({ c, demo }: { c: ChannelView; demo: boolean }) {
-  const { busy, opening, connect } = useChannel(c, demo, "/app/inputs#publishing");
+  const { busy, opening, connect } = useChannel(c, demo, "/app/inputs?tab=publishing");
   const conn = c.connection;
   return (
     <li className="flex flex-wrap items-center gap-2 text-sm">
