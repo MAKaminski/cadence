@@ -43,7 +43,7 @@
     "@better-auth/stripe": "1.7.6",
     "@hono/zod-openapi": "^1.6.3",
     "@hookform/resolvers": "^5.9.1",
-    "@modelcontextprotocol/server": "2.1.0",
+    "@modelcontextprotocol/server": "2.3.0",
     "@scalar/nextjs-api-reference": "^0.12.4",
     "@tanstack/react-query": "5.104.0",
     "apns2": "12.2.0",
