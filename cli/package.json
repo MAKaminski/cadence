@@ -15,7 +15,7 @@
     "build": "esbuild src/index.ts --bundle --platform=node --format=esm --target=node20 --outfile=dist/cadence.mjs --banner:js=#!/usr/bin/env\\ node"
   },
   "dependencies": {
-    "commander": "15.0.0",
+    "commander": "15.1.0",
     "openapi-fetch": "0.17.0"
   }
 }
